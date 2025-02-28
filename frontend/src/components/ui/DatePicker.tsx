@@ -1,246 +1,203 @@
-import { FC, useState } from 'react';
-import { Dropdown } from './Dropdown';
+import { FC, useState, useRef, useEffect } from 'react';
+import Calendar from './Calendar';
 
 interface DatePickerProps {
   value?: Date;
-  onChange?: (date: Date) => void;
+  onChange?: (date: Date | null) => void;
+  placeholder?: string;
   label?: string;
   error?: string;
   disabled?: boolean;
+  className?: string;
   minDate?: Date;
   maxDate?: Date;
-  placeholder?: string;
-  className?: string;
-  required?: boolean;
-  name?: string;
+  clearable?: boolean;
+  showWeekNumbers?: boolean;
+  weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  locale?: string;
 }
 
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
-];
+const CalendarIcon = () => (
+  <svg
+    className="w-5 h-5 text-gray-400"
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+    />
+  </svg>
+);
+
+const ClearButton = ({ onClick }: { onClick: () => void }) => (
+  <button
+    type="button"
+    className="text-gray-400 hover:text-gray-500"
+    onClick={onClick}
+  >
+    ×
+  </button>
+);
 
 export const DatePicker: FC<DatePickerProps> = ({
   value,
   onChange,
+  placeholder = 'Select date',
   label,
   error,
   disabled = false,
+  className = '',
   minDate,
   maxDate,
-  placeholder = 'Select date',
-  className = '',
-  required = false,
-  name,
+  clearable = true,
+  showWeekNumbers = false,
+  weekStartsOn = 1,
+  locale = 'en-US',
 }) => {
-  const [currentDate, setCurrentDate] = useState(value || new Date());
+  const [isOpen, setIsOpen] = useState(false);
+  const [inputValue, setInputValue] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (value) {
+      setInputValue(formatDate(value));
+    } else {
+      setInputValue('');
+    }
+  }, [value]);
 
   const formatDate = (date: Date): string => {
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
-
-  const isToday = (date: Date): boolean => {
-    const today = new Date();
-    return (
-      date.getDate() === today.getDate() &&
-      date.getMonth() === today.getMonth() &&
-      date.getFullYear() === today.getFullYear()
-    );
-  };
-
-  const isSelected = (date: Date): boolean => {
-    return value
-      ? date.getDate() === value.getDate() &&
-          date.getMonth() === value.getMonth() &&
-          date.getFullYear() === value.getFullYear()
-      : false;
-  };
-
-  const isDisabled = (date: Date): boolean => {
-    if (disabled) return true;
-    if (minDate && date < minDate) return true;
-    if (maxDate && date > maxDate) return true;
-    return false;
-  };
-
-  const getDaysInMonth = (year: number, month: number): number => {
-    return new Date(year, month + 1, 0).getDate();
-  };
-
-  const getCalendarDays = (): Date[] => {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const daysInMonth = getDaysInMonth(year, month);
-    const days: Date[] = [];
-
-    // Add previous month's days
-    for (let i = 0; i < firstDay.getDay(); i++) {
-      const date = new Date(year, month, -i);
-      days.unshift(date);
+    try {
+      return new Intl.DateTimeFormat(locale, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(date);
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return '';
     }
+  };
 
-    // Add current month's days
-    for (let i = 1; i <= daysInMonth; i++) {
-      days.push(new Date(year, month, i));
+  const parseDate = (dateString: string): Date | null => {
+    const parts = dateString.split(/[/.-]/);
+    if (parts.length === 3) {
+      const month = parseInt(parts[0]) - 1;
+      const day = parseInt(parts[1]);
+      const year = parseInt(parts[2]);
+      const date = new Date(year, month, day);
+      if (isValidDate(date)) {
+        return date;
+      }
     }
-
-    // Add next month's days
-    const remainingDays = 42 - days.length; // 6 rows * 7 days
-    for (let i = 1; i <= remainingDays; i++) {
-      days.push(new Date(year, month + 1, i));
-    }
-
-    return days;
+    return null;
   };
 
-  const handlePrevMonth = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1));
+  const isValidDate = (date: Date): boolean => {
+    if (!date || isNaN(date.getTime())) return false;
+    if (minDate && date < minDate) return false;
+    if (maxDate && date > maxDate) return false;
+    return true;
   };
 
-  const handleNextMonth = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1));
-  };
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setInputValue(value);
 
-  const handleSelectDate = (date: Date) => {
-    if (!isDisabled(date)) {
+    const date = parseDate(value);
+    if (date && isValidDate(date)) {
       onChange?.(date);
     }
   };
 
-  const trigger = (
-    <div
-      className={`
-        relative w-full cursor-default rounded-md border bg-white py-2 pl-3 pr-10
-        text-left shadow-sm focus:border-red-500 focus:outline-none focus:ring-1
-        focus:ring-red-500 sm:text-sm
-        ${disabled ? 'bg-gray-50 cursor-not-allowed' : ''}
-        ${error ? 'border-red-500' : 'border-gray-300'}
-        ${className}
-      `}
-    >
-      <span className="block truncate">
-        {value ? formatDate(value) : placeholder}
-      </span>
-      <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-        <svg
-          className="h-5 w-5 text-gray-400"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-          />
-        </svg>
-      </span>
-    </div>
-  );
+  const handleInputFocus = () => {
+    setIsOpen(true);
+  };
+
+  const handleCalendarSelect = (selectedDate: Date | Date[]) => {
+    if (selectedDate instanceof Date) {
+      onChange?.(selectedDate);
+      setIsOpen(false);
+      inputRef.current?.focus();
+    }
+  };
+
+  const handleClear = () => {
+    setInputValue('');
+    onChange?.(null);
+    inputRef.current?.focus();
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
-    <div className="space-y-1">
+    <div className={className} ref={containerRef}>
       {label && (
-        <label className="block text-sm font-medium text-gray-700">
+        <label className="block text-sm font-medium text-gray-700 mb-1">
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
         </label>
       )}
-      <Dropdown
-        trigger={trigger}
-        width={320}
-        closeOnClick={false}
-        className={disabled ? 'pointer-events-none' : ''}
-      >
-        <div className="p-2" onClick={(e) => e.stopPropagation()}>
-          {/* Calendar Header */}
-          <div className="flex items-center justify-between mb-4">
-            <button
-              type="button"
-              onClick={handlePrevMonth}
-              className="p-1 hover:bg-gray-100 rounded-full"
-            >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <div className="text-sm font-medium">
-              {MONTHS[currentDate.getMonth()]} {currentDate.getFullYear()}
-            </div>
-            <button
-              type="button"
-              onClick={handleNextMonth}
-              className="p-1 hover:bg-gray-100 rounded-full"
-            >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Calendar Grid */}
-          <div className="grid grid-cols-7 gap-1">
-            {/* Day Headers */}
-            {DAYS.map((day) => (
-              <div
-                key={day}
-                className="text-center text-xs font-medium text-gray-500 py-1"
-              >
-                {day}
-              </div>
-            ))}
-
-            {/* Calendar Days */}
-            {getCalendarDays().map((date, index) => (
-              <button
-                key={index}
-                type="button"
-                onClick={() => handleSelectDate(date)}
-                disabled={isDisabled(date)}
-                className={`
-                  text-sm p-2 rounded-full
-                  ${date.getMonth() === currentDate.getMonth()
-                    ? 'text-gray-900'
-                    : 'text-gray-400'
-                  }
-                  ${isToday(date) && !isSelected(date)
-                    ? 'border border-red-500'
-                    : ''
-                  }
-                  ${isSelected(date)
-                    ? 'bg-red-500 text-white hover:bg-red-600'
-                    : 'hover:bg-gray-100'
-                  }
-                  ${isDisabled(date)
-                    ? 'opacity-50 cursor-not-allowed'
-                    : 'cursor-pointer'
-                  }
-                `}
-              >
-                {date.getDate()}
-              </button>
-            ))}
+      <div className="relative">
+        <div className="relative">
+          <input
+            ref={inputRef}
+            type="text"
+            value={inputValue}
+            onChange={handleInputChange}
+            onFocus={handleInputFocus}
+            placeholder={placeholder}
+            disabled={disabled}
+            className={`
+              w-full rounded-md border-gray-300 shadow-sm
+              focus:border-red-500 focus:ring-red-500
+              disabled:opacity-50 disabled:cursor-not-allowed
+              ${error ? 'border-red-300' : ''}
+              pr-10
+            `}
+          />
+          <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+            {clearable && inputValue ? (
+              <ClearButton onClick={handleClear} />
+            ) : (
+              <CalendarIcon />
+            )}
           </div>
         </div>
-      </Dropdown>
+        {isOpen && (
+          <div
+            className="absolute z-10 mt-2 bg-white rounded-md shadow-lg"
+            style={{ minWidth: inputRef.current?.offsetWidth }}
+          >
+            <Calendar
+              value={value}
+              onChange={handleCalendarSelect}
+              minDate={minDate}
+              maxDate={maxDate}
+              showWeekNumbers={showWeekNumbers}
+              weekStartsOn={weekStartsOn}
+              locale={locale}
+            />
+          </div>
+        )}
+      </div>
       {error && (
-        <p className="mt-1 text-sm text-red-500">{error}</p>
-      )}
-      {name && value && (
-        <input
-          type="hidden"
-          name={name}
-          value={value.toISOString()}
-        />
+        <p className="mt-1 text-sm text-red-600">
+          {error}
+        </p>
       )}
     </div>
   );

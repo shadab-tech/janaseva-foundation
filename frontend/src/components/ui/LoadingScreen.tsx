@@ -1,133 +1,137 @@
 import { FC } from 'react';
-import { LoadingSpinner } from './LoadingSpinner';
+import { Portal } from './Portal';
 
 interface LoadingScreenProps {
+  isLoading: boolean;
   text?: string;
+  overlay?: boolean;
+  spinnerSize?: 'sm' | 'md' | 'lg';
+  spinnerColor?: string;
+  className?: string;
   fullScreen?: boolean;
-  transparent?: boolean;
-  size?: 'sm' | 'md' | 'lg';
 }
 
 export const LoadingScreen: FC<LoadingScreenProps> = ({
+  isLoading,
   text = 'Loading...',
-  fullScreen = true,
-  transparent = false,
-  size = 'lg',
-}) => {
-  const containerClasses = `
-    flex items-center justify-center
-    ${fullScreen ? 'fixed inset-0' : 'min-h-[400px]'}
-    ${transparent ? 'bg-transparent' : 'bg-white bg-opacity-90'}
-    ${fullScreen ? 'z-50' : ''}
-  `;
-
-  const content = (
-    <div className="text-center">
-      <LoadingSpinner text={text} size={size} />
-    </div>
-  );
-
-  if (fullScreen) {
-    return (
-      <div className={containerClasses}>
-        <div className="max-w-sm mx-auto px-4">
-          {content}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className={containerClasses}>
-      {content}
-    </div>
-  );
-};
-
-// Variants for specific use cases
-export const FullScreenLoader: FC<{ text?: string }> = ({ text }) => (
-  <LoadingScreen text={text} fullScreen size="lg" />
-);
-
-export const ContentLoader: FC<{ text?: string }> = ({ text }) => (
-  <LoadingScreen text={text} fullScreen={false} size="md" />
-);
-
-export const TransparentLoader: FC<{ text?: string }> = ({ text }) => (
-  <LoadingScreen text={text} transparent size="lg" />
-);
-
-export const InlineLoader: FC<{ text?: string; className?: string }> = ({
-  text,
+  overlay = true,
+  spinnerSize = 'md',
+  spinnerColor = 'text-red-500',
   className = '',
-}) => (
-  <div className={`flex items-center justify-center p-4 ${className}`}>
-    <LoadingSpinner text={text} size="sm" />
-  </div>
-);
+  fullScreen = true,
+}) => {
+  if (!isLoading) return null;
 
-// Overlay loader with backdrop
-export const OverlayLoader: FC<{ text?: string; onCancel?: () => void }> = ({
-  text,
-  onCancel,
-}) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center">
-    <div className="absolute inset-0 bg-black bg-opacity-50" onClick={onCancel} />
-    <div className="relative bg-white rounded-lg p-6 shadow-xl max-w-sm mx-4">
-      <LoadingSpinner text={text} size="lg" />
-      {onCancel && (
-        <button
-          onClick={onCancel}
-          className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
-          aria-label="Cancel"
-        >
-          <svg
-            className="h-5 w-5"
-            fill="none"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+  const spinnerSizeClasses = {
+    sm: 'w-6 h-6',
+    md: 'w-10 h-10',
+    lg: 'w-16 h-16',
+  };
+
+  const LoadingSpinner = () => (
+    <div className="inline-flex flex-col items-center">
+      <svg
+        className={`animate-spin ${spinnerSizeClasses[spinnerSize]} ${spinnerColor}`}
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+      >
+        <circle
+          className="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          strokeWidth="4"
+        />
+        <path
+          className="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+        />
+      </svg>
+      {text && (
+        <span className={`mt-4 text-sm font-medium ${spinnerColor}`}>
+          {text}
+        </span>
       )}
     </div>
-  </div>
-);
+  );
 
-// Loading states with custom animations
-export const PulseLoader: FC = () => (
-  <div className="flex space-x-2 justify-center items-center">
-    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse delay-75" />
-    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse delay-150" />
-  </div>
-);
+  const content = (
+    <div
+      className={`
+        flex items-center justify-center
+        ${fullScreen ? 'fixed inset-0' : 'absolute inset-0'}
+        ${overlay ? 'bg-white/80 backdrop-blur-sm' : ''}
+        z-50
+        ${className}
+      `}
+    >
+      <LoadingSpinner />
+    </div>
+  );
 
-export const CircleLoader: FC<{ size?: 'sm' | 'md' | 'lg' }> = ({ size = 'md' }) => {
-  const sizes = {
-    sm: 'h-4 w-4',
-    md: 'h-8 w-8',
-    lg: 'h-12 w-12',
+  return fullScreen ? (
+    <Portal containerId="loading-screen-root">
+      {content}
+    </Portal>
+  ) : content;
+};
+
+// Simpler version for inline loading states
+interface LoadingSpinnerProps {
+  size?: 'xs' | 'sm' | 'md' | 'lg';
+  color?: string;
+  className?: string;
+}
+
+export const LoadingSpinner: FC<LoadingSpinnerProps> = ({
+  size = 'md',
+  color = 'text-red-500',
+  className = '',
+}) => {
+  const sizeClasses = {
+    xs: 'w-4 h-4',
+    sm: 'w-6 h-6',
+    md: 'w-8 h-8',
+    lg: 'w-12 h-12',
   };
 
   return (
-    <div
-      className={`${sizes[size]} border-2 border-gray-200 border-t-red-500 rounded-full animate-spin`}
-    />
+    <svg
+      className={`animate-spin ${sizeClasses[size]} ${color} ${className}`}
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      />
+    </svg>
   );
 };
 
-export const ProgressLoader: FC<{ progress: number }> = ({ progress }) => (
-  <div className="w-full bg-gray-200 rounded-full h-2.5">
-    <div
-      className="bg-red-500 h-2.5 rounded-full transition-all duration-300"
-      style={{ width: `${progress}%` }}
-    />
-  </div>
-);
+// Example usage:
+// Full screen loading:
+// <LoadingScreen isLoading={true} text="Loading data..." />
+
+// Inline loading:
+// <LoadingSpinner size="sm" color="text-blue-500" />
+
+// Container loading:
+// <div className="relative h-64">
+//   <LoadingScreen isLoading={true} fullScreen={false} overlay={true} />
+// </div>
 
 export default LoadingScreen;

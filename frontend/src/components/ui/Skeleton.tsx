@@ -1,13 +1,13 @@
-import { FC } from 'react';
+import { FC, ReactNode } from 'react';
 
 interface SkeletonProps {
-  variant?: 'text' | 'circular' | 'rectangular' | 'rounded';
-  width?: number | string;
-  height?: number | string;
+  variant?: 'text' | 'circular' | 'rectangular' | 'custom';
+  width?: string | number;
+  height?: string | number;
   className?: string;
   animation?: 'pulse' | 'wave' | 'none';
+  children?: ReactNode;
   repeat?: number;
-  dark?: boolean;
 }
 
 export const Skeleton: FC<SkeletonProps> = ({
@@ -16,213 +16,139 @@ export const Skeleton: FC<SkeletonProps> = ({
   height,
   className = '',
   animation = 'pulse',
+  children,
   repeat = 1,
-  dark = false,
 }) => {
-  const baseStyles = dark ? 'bg-gray-700' : 'bg-gray-200';
-  const animationStyles = {
+  const baseClasses = 'bg-gray-200 dark:bg-gray-700';
+  const animationClasses = {
     pulse: 'animate-pulse',
-    wave: 'animate-shimmer bg-gradient-to-r from-transparent via-white/10 to-transparent bg-[length:200%_100%]',
+    wave: 'animate-shimmer',
     none: '',
   };
 
-  const variantStyles = {
+  const variantClasses = {
     text: 'rounded',
     circular: 'rounded-full',
-    rectangular: '',
-    rounded: 'rounded-lg',
+    rectangular: 'rounded-none',
+    custom: '',
   };
 
-  const getDefaultHeight = () => {
-    switch (variant) {
-      case 'text':
-        return '1em';
-      case 'circular':
-        return width || '2.5rem';
-      default:
-        return height || '100px';
-    }
-  };
-
-  const skeletonStyle = {
-    width: width || (variant === 'text' ? '100%' : 'auto'),
-    height: height || getDefaultHeight(),
+  const getStyle = () => {
+    const style: Record<string, string | number> = {};
+    if (width) style.width = typeof width === 'number' ? `${width}px` : width;
+    if (height) style.height = typeof height === 'number' ? `${height}px` : height;
+    return style;
   };
 
   const renderSkeleton = () => (
     <div
       className={`
-        ${baseStyles}
-        ${variantStyles[variant]}
-        ${animationStyles[animation]}
+        ${baseClasses}
+        ${animationClasses[animation]}
+        ${variantClasses[variant]}
         ${className}
       `}
-      style={skeletonStyle}
-      role="status"
-      aria-label="loading"
-    />
-  );
-
-  if (repeat === 1) {
-    return renderSkeleton();
-  }
-
-  return (
-    <div className="space-y-2">
-      {Array.from({ length: repeat }, (_, index) => (
-        <div key={index}>{renderSkeleton()}</div>
-      ))}
+      style={getStyle()}
+    >
+      {children}
     </div>
   );
+
+  if (repeat > 1) {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: repeat }).map((_, index) => (
+          <div key={index}>{renderSkeleton()}</div>
+        ))}
+      </div>
+    );
+  }
+
+  return renderSkeleton();
 };
 
-// Predefined skeleton components
+// Predefined skeleton components for common use cases
 export const TextSkeleton: FC<Omit<SkeletonProps, 'variant'>> = (props) => (
-  <Skeleton variant="text" {...props} />
+  <Skeleton variant="text" height={20} {...props} />
 );
 
 export const CircularSkeleton: FC<Omit<SkeletonProps, 'variant'>> = (props) => (
-  <Skeleton variant="circular" {...props} />
+  <Skeleton variant="circular" width={40} height={40} {...props} />
 );
 
 export const RectangularSkeleton: FC<Omit<SkeletonProps, 'variant'>> = (props) => (
   <Skeleton variant="rectangular" {...props} />
 );
 
-// Common skeleton layouts
-interface CardSkeletonProps {
-  imageHeight?: number | string;
+// Common skeleton patterns
+interface AvatarWithTextSkeletonProps extends Omit<SkeletonProps, 'variant'> {
   lines?: number;
-  className?: string;
-  dark?: boolean;
 }
 
-export const CardSkeleton: FC<CardSkeletonProps> = ({
-  imageHeight = 200,
-  lines = 3,
+export const AvatarWithTextSkeleton: FC<AvatarWithTextSkeletonProps> = ({
+  lines = 2,
   className = '',
-  dark = false,
+  ...props
 }) => (
-  <div className={`space-y-4 ${className}`}>
-    <Skeleton
-      variant="rounded"
-      height={imageHeight}
-      className="w-full"
-      dark={dark}
-    />
-    <div className="space-y-2">
-      <Skeleton
-        variant="text"
-        width="75%"
-        height="1.5em"
-        dark={dark}
-      />
-      {Array.from({ length: lines - 1 }, (_, index) => (
-        <Skeleton
+  <div className={`flex items-start space-x-4 ${className}`}>
+    <CircularSkeleton {...props} />
+    <div className="flex-1 space-y-2">
+      {Array.from({ length: lines }).map((_, index) => (
+        <TextSkeleton
           key={index}
-          variant="text"
-          width={`${Math.random() * 30 + 70}%`}
-          dark={dark}
+          width={index === 0 ? '60%' : '80%'}
+          {...props}
         />
       ))}
     </div>
   </div>
 );
 
-interface ListSkeletonProps {
-  rows?: number;
-  rowHeight?: number | string;
-  className?: string;
-  dark?: boolean;
-}
-
-export const ListSkeleton: FC<ListSkeletonProps> = ({
-  rows = 5,
-  rowHeight = '4rem',
+export const CardSkeleton: FC<SkeletonProps> = ({
   className = '',
-  dark = false,
+  ...props
 }) => (
   <div className={`space-y-4 ${className}`}>
-    {Array.from({ length: rows }, (_, index) => (
-      <div
-        key={index}
-        className="flex items-center space-x-4"
-        style={{ height: rowHeight }}
-      >
-        <CircularSkeleton width={40} height={40} dark={dark} />
-        <div className="flex-1 space-y-2">
-          <Skeleton variant="text" width="40%" dark={dark} />
-          <Skeleton variant="text" width="60%" dark={dark} />
-        </div>
-      </div>
-    ))}
+    <RectangularSkeleton height={200} {...props} />
+    <div className="space-y-2">
+      <TextSkeleton width="70%" {...props} />
+      <TextSkeleton width="100%" {...props} />
+      <TextSkeleton width="40%" {...props} />
+    </div>
   </div>
 );
 
-interface TableSkeletonProps {
-  rows?: number;
-  columns?: number;
-  className?: string;
-  headerHeight?: string | number;
-  rowHeight?: string | number;
-  dark?: boolean;
-}
-
-export const TableSkeleton: FC<TableSkeletonProps> = ({
-  rows = 5,
+export const TableRowSkeleton: FC<SkeletonProps & { columns?: number }> = ({
   columns = 4,
   className = '',
-  headerHeight = '2.5rem',
-  rowHeight = '2rem',
-  dark = false,
+  ...props
 }) => (
-  <div className={`space-y-4 ${className}`}>
-    <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
-      {Array.from({ length: columns }, (_, index) => (
-        <Skeleton
-          key={index}
-          variant="rectangular"
-          height={headerHeight}
-          className="rounded"
-          dark={dark}
-        />
-      ))}
-    </div>
-    {Array.from({ length: rows }, (_, rowIndex) => (
-      <div
-        key={rowIndex}
-        className="grid gap-4"
-        style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}
-      >
-        {Array.from({ length: columns }, (_, colIndex) => (
-          <Skeleton
-            key={colIndex}
-            variant="text"
-            height={rowHeight}
-            width={`${Math.random() * 30 + 70}%`}
-            dark={dark}
-          />
-        ))}
-      </div>
+  <div className={`flex space-x-4 ${className}`}>
+    {Array.from({ length: columns }).map((_, index) => (
+      <TextSkeleton
+        key={index}
+        width={`${100 / columns}%`}
+        {...props}
+      />
     ))}
   </div>
 );
 
-// Add shimmer animation to tailwind.config.js
-// {
+// Add shimmer animation to tailwind.config.js:
+// module.exports = {
 //   theme: {
 //     extend: {
 //       keyframes: {
 //         shimmer: {
-//           '0%': { backgroundPosition: '-200% 0' },
-//           '100%': { backgroundPosition: '200% 0' },
+//           '0%': { backgroundPosition: '-1000px 0' },
+//           '100%': { backgroundPosition: '1000px 0' },
 //         },
 //       },
 //       animation: {
-//         shimmer: 'shimmer 1.5s infinite linear',
+//         shimmer: 'shimmer 2s infinite linear',
 //       },
 //     },
 //   },
-// }
+// };
 
 export default Skeleton;

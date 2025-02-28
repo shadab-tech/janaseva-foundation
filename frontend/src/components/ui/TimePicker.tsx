@@ -1,174 +1,232 @@
-import { FC, useMemo } from 'react';
-import { Dropdown, DropdownMenu, DropdownItem } from './Dropdown';
+import { FC, useState, useRef, useEffect } from 'react';
 
 interface TimePickerProps {
   value?: string;
-  onChange?: (time: string) => void;
+  onChange?: (time: string | null) => void;
+  placeholder?: string;
   label?: string;
   error?: string;
   disabled?: boolean;
+  className?: string;
+  format?: '12h' | '24h';
+  clearable?: boolean;
+  step?: number;
   minTime?: string;
   maxTime?: string;
-  interval?: number;
-  format?: '12h' | '24h';
-  placeholder?: string;
-  className?: string;
-  required?: boolean;
-  name?: string;
+}
+
+interface TimeOption {
+  label: string;
+  value: string;
 }
 
 export const TimePicker: FC<TimePickerProps> = ({
   value,
   onChange,
+  placeholder = 'Select time',
   label,
   error,
   disabled = false,
-  minTime = '00:00',
-  maxTime = '23:59',
-  interval = 30,
-  format = '12h',
-  placeholder = 'Select time',
   className = '',
-  required = false,
-  name,
+  format = '24h',
+  clearable = true,
+  step = 30,
+  minTime,
+  maxTime,
 }) => {
-  // Generate time slots
-  const timeSlots = useMemo(() => {
-    const slots: string[] = [];
-    const [minHour, minMinute] = minTime.split(':').map(Number);
-    const [maxHour, maxMinute] = maxTime.split(':').map(Number);
-    
-    const startMinutes = minHour * 60 + minMinute;
-    const endMinutes = maxHour * 60 + maxMinute;
-    
-    for (let minutes = startMinutes; minutes <= endMinutes; minutes += interval) {
-      const hour = Math.floor(minutes / 60);
-      const minute = minutes % 60;
-      const time24 = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-      slots.push(time24);
-    }
-    
-    return slots;
-  }, [minTime, maxTime, interval]);
+  const [isOpen, setIsOpen] = useState(false);
+  const [inputValue, setInputValue] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Format time for display
+  useEffect(() => {
+    if (value) {
+      setInputValue(formatTime(value));
+    } else {
+      setInputValue('');
+    }
+  }, [value, format]);
+
   const formatTime = (time: string): string => {
-    if (!time) return '';
-    
-    const [hour, minute] = time.split(':').map(Number);
-    
-    if (format === '12h') {
-      const period = hour >= 12 ? 'PM' : 'AM';
-      const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-      return `${hour12}:${minute.toString().padStart(2, '0')} ${period}`;
+    try {
+      const [hours, minutes] = time.split(':').map(Number);
+      if (format === '12h') {
+        const period = hours >= 12 ? 'PM' : 'AM';
+        const hours12 = hours % 12 || 12;
+        return `${hours12.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
+      }
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    } catch (error) {
+      console.error('Error formatting time:', error);
+      return '';
     }
+  };
+
+  const parseTime = (timeString: string): string | null => {
+    const timeRegex = format === '12h'
+      ? /^(0?[1-9]|1[0-2]):([0-5][0-9])\s?(AM|PM)$/i
+      : /^([01]?[0-9]|2[0-3]):([0-5][0-9])$/;
+
+    const match = timeString.match(timeRegex);
+    if (!match) return null;
+
+    let hours = parseInt(match[1]);
+    const minutes = parseInt(match[2]);
+
+    if (format === '12h' && match[3]) {
+      const period = match[3].toUpperCase();
+      if (period === 'PM' && hours !== 12) hours += 12;
+      if (period === 'AM' && hours === 12) hours = 0;
+    }
+
+    const timeValue = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    if (isValidTime(timeValue)) {
+      return timeValue;
+    }
+
+    return null;
+  };
+
+  const isValidTime = (time: string): boolean => {
+    if (!time) return false;
+    if (minTime && time < minTime) return false;
+    if (maxTime && time > maxTime) return false;
+    return true;
+  };
+
+  const generateTimeOptions = (): TimeOption[] => {
+    const options: TimeOption[] = [];
+    const totalMinutes = 24 * 60;
     
-    return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+    for (let i = 0; i < totalMinutes; i += step) {
+      const hours = Math.floor(i / 60);
+      const minutes = i % 60;
+      const timeValue = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+      
+      if (!isValidTime(timeValue)) continue;
+
+      options.push({
+        value: timeValue,
+        label: formatTime(timeValue),
+      });
+    }
+
+    return options;
   };
 
-  const handleSelect = (time: string) => {
-    onChange?.(time);
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setInputValue(value);
+
+    const time = parseTime(value);
+    if (time) {
+      onChange?.(time);
+    }
   };
 
-  const trigger = (
-    <div
-      className={`
-        relative w-full cursor-default rounded-md border bg-white py-2 pl-3 pr-10
-        text-left shadow-sm focus:border-red-500 focus:outline-none focus:ring-1
-        focus:ring-red-500 sm:text-sm
-        ${disabled ? 'bg-gray-50 cursor-not-allowed' : ''}
-        ${error ? 'border-red-500' : 'border-gray-300'}
-        ${className}
-      `}
-    >
-      <span className="block truncate">
-        {value ? formatTime(value) : placeholder}
-      </span>
-      <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-        <svg
-          className="h-5 w-5 text-gray-400"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-      </span>
-    </div>
-  );
+  const handleOptionClick = (option: TimeOption) => {
+    setInputValue(option.label);
+    onChange?.(option.value);
+    setIsOpen(false);
+    inputRef.current?.focus();
+  };
+
+  const handleClear = () => {
+    setInputValue('');
+    onChange?.(null);
+    inputRef.current?.focus();
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const timeOptions = generateTimeOptions();
 
   return (
-    <div className="space-y-1">
+    <div className={className} ref={containerRef}>
       {label && (
-        <label className="block text-sm font-medium text-gray-700">
+        <label className="block text-sm font-medium text-gray-700 mb-1">
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
         </label>
       )}
-      <Dropdown
-        trigger={trigger}
-        width="trigger"
-        className={disabled ? 'pointer-events-none' : ''}
-      >
-        <DropdownMenu className="max-h-60 overflow-auto py-1">
-          {timeSlots.map((time) => (
-            <DropdownItem
-              key={time}
-              onClick={() => handleSelect(time)}
-              className={time === value ? 'bg-red-50 text-red-600' : ''}
-            >
-              {formatTime(time)}
-            </DropdownItem>
-          ))}
-        </DropdownMenu>
-      </Dropdown>
+      <div className="relative">
+        <div className="relative">
+          <input
+            ref={inputRef}
+            type="text"
+            value={inputValue}
+            onChange={handleInputChange}
+            onFocus={() => setIsOpen(true)}
+            placeholder={placeholder}
+            disabled={disabled}
+            className={`
+              w-full rounded-md border-gray-300 shadow-sm
+              focus:border-red-500 focus:ring-red-500
+              disabled:opacity-50 disabled:cursor-not-allowed
+              ${error ? 'border-red-300' : ''}
+              pr-10
+            `}
+          />
+          <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+            {clearable && inputValue ? (
+              <button
+                type="button"
+                className="text-gray-400 hover:text-gray-500"
+                onClick={handleClear}
+              >
+                ×
+              </button>
+            ) : (
+              <svg
+                className="w-5 h-5 text-gray-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            )}
+          </div>
+        </div>
+        {isOpen && (
+          <div
+            className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg max-h-60 overflow-auto"
+          >
+            {timeOptions.map((option) => (
+              <div
+                key={option.value}
+                className={`
+                  px-4 py-2 cursor-pointer hover:bg-gray-100
+                  ${option.value === value ? 'bg-red-50 text-red-600' : ''}
+                `}
+                onClick={() => handleOptionClick(option)}
+              >
+                {option.label}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
       {error && (
-        <p className="mt-1 text-sm text-red-500">{error}</p>
-      )}
-      {name && value && (
-        <input
-          type="hidden"
-          name={name}
-          value={value}
-        />
+        <p className="mt-1 text-sm text-red-600">
+          {error}
+        </p>
       )}
     </div>
   );
-};
-
-// Helper function to check if a time is within a range
-export const isTimeInRange = (
-  time: string,
-  minTime: string,
-  maxTime: string
-): boolean => {
-  const [timeHour, timeMinute] = time.split(':').map(Number);
-  const [minHour, minMinute] = minTime.split(':').map(Number);
-  const [maxHour, maxMinute] = maxTime.split(':').map(Number);
-
-  const timeMinutes = timeHour * 60 + timeMinute;
-  const minMinutes = minHour * 60 + minMinute;
-  const maxMinutes = maxHour * 60 + maxMinute;
-
-  return timeMinutes >= minMinutes && timeMinutes <= maxMinutes;
-};
-
-// Helper function to format time string
-export const formatTimeString = (time: string, format: '12h' | '24h' = '12h'): string => {
-  const [hour, minute] = time.split(':').map(Number);
-  
-  if (format === '12h') {
-    const period = hour >= 12 ? 'PM' : 'AM';
-    const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    return `${hour12}:${minute.toString().padStart(2, '0')} ${period}`;
-  }
-  
-  return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
 };
 
 export default TimePicker;

@@ -1,12 +1,12 @@
-import { useEffect, useState, ReactNode } from 'react';
+import { FC, ReactNode, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 interface PortalProps {
   children: ReactNode;
-  containerId?: string;
+  containerId: string;
 }
 
-export const Portal = ({ children, containerId = 'portal-root' }: PortalProps) => {
+export const Portal: FC<PortalProps> = ({ children, containerId }) => {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -17,22 +17,25 @@ export const Portal = ({ children, containerId = 'portal-root' }: PortalProps) =
     if (!container) {
       container = document.createElement('div');
       container.id = containerId;
+      // Add any default styles needed for the container
+      container.style.position = 'relative';
+      container.style.zIndex = '50';
       document.body.appendChild(container);
     }
 
     return () => {
-      // Clean up empty portal container on unmount
-      const portalContainer = document.getElementById(containerId);
-      if (portalContainer && !portalContainer.hasChildNodes()) {
-        document.body.removeChild(portalContainer);
+      // Clean up container if it's empty when this portal is unmounted
+      const container = document.getElementById(containerId);
+      if (container && container.childNodes.length === 0) {
+        document.body.removeChild(container);
       }
     };
   }, [containerId]);
 
-  // Only render after component is mounted to ensure client-side rendering
+  // Hydration safety: only render on client-side
   if (!mounted) return null;
 
-  // Get or create portal container
+  // Get or create container element
   let container = document.getElementById(containerId);
   if (!container) {
     container = document.createElement('div');
@@ -43,54 +46,38 @@ export const Portal = ({ children, containerId = 'portal-root' }: PortalProps) =
   return createPortal(children, container);
 };
 
-// Modal Portal
-export const ModalPortal = ({ children }: { children: ReactNode }) => (
-  <Portal containerId="modal-root">{children}</Portal>
-);
+// Helper function to ensure portal container exists
+export const ensurePortalContainer = (containerId: string): HTMLElement => {
+  let container = document.getElementById(containerId);
+  if (!container) {
+    container = document.createElement('div');
+    container.id = containerId;
+    container.style.position = 'relative';
+    container.style.zIndex = '50';
+    document.body.appendChild(container);
+  }
+  return container;
+};
 
-// Toast Portal
-export const ToastPortal = ({ children }: { children: ReactNode }) => (
-  <Portal containerId="toast-root">{children}</Portal>
-);
+// Helper function to remove portal container if empty
+export const cleanupPortalContainer = (containerId: string): void => {
+  const container = document.getElementById(containerId);
+  if (container && container.childNodes.length === 0) {
+    document.body.removeChild(container);
+  }
+};
 
-// Tooltip Portal
-export const TooltipPortal = ({ children }: { children: ReactNode }) => (
-  <Portal containerId="tooltip-root">{children}</Portal>
-);
+// Example usage:
+// <Portal containerId="modal-root">
+//   <Modal>Modal content</Modal>
+// </Portal>
 
-// Dropdown Portal
-export const DropdownPortal = ({ children }: { children: ReactNode }) => (
-  <Portal containerId="dropdown-root">{children}</Portal>
-);
+// <Portal containerId="tooltip-root">
+//   <Tooltip>Tooltip content</Tooltip>
+// </Portal>
 
-// Context Menu Portal
-export const ContextMenuPortal = ({ children }: { children: ReactNode }) => (
-  <Portal containerId="context-menu-root">{children}</Portal>
-);
-
-// Popover Portal
-export const PopoverPortal = ({ children }: { children: ReactNode }) => (
-  <Portal containerId="popover-root">{children}</Portal>
-);
-
-// Dialog Portal
-export const DialogPortal = ({ children }: { children: ReactNode }) => (
-  <Portal containerId="dialog-root">{children}</Portal>
-);
-
-// Alert Portal
-export const AlertPortal = ({ children }: { children: ReactNode }) => (
-  <Portal containerId="alert-root">{children}</Portal>
-);
-
-// Notification Portal
-export const NotificationPortal = ({ children }: { children: ReactNode }) => (
-  <Portal containerId="notification-root">{children}</Portal>
-);
-
-// Loading Portal
-export const LoadingPortal = ({ children }: { children: ReactNode }) => (
-  <Portal containerId="loading-root">{children}</Portal>
-);
+// <Portal containerId="notification-root">
+//   <Notification>Notification content</Notification>
+// </Portal>
 
 export default Portal;
