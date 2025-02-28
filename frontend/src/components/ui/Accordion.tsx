@@ -1,209 +1,106 @@
-import { FC, ReactNode, useState, createContext, useContext } from 'react';
-import { Transition } from './Transition';
+import { FC, ReactNode, useState } from 'react';
 
-interface AccordionContextType {
-  openItems: string[];
-  toggleItem: (id: string) => void;
-  isItemOpen: (id: string) => boolean;
+interface AccordionItem {
+  title: string;
+  content: ReactNode;
+  isOpen?: boolean;
+  disabled?: boolean;
+  icon?: ReactNode;
+  iconPosition?: 'left' | 'right';
 }
 
-const AccordionContext = createContext<AccordionContextType | undefined>(undefined);
-
 interface AccordionProps {
-  children: ReactNode;
-  defaultOpen?: string[];
-  multiple?: boolean;
+  items: AccordionItem[];
   className?: string;
-  variant?: 'default' | 'bordered' | 'separated';
-  onChange?: (openItems: string[]) => void;
+  itemClassName?: string;
+  headerClassName?: string;
+  contentClassName?: string;
+  allowMultiple?: boolean;
+  variant?: 'default' | 'borderless';
+  transitionDuration?: number;
 }
 
 export const Accordion: FC<AccordionProps> = ({
-  children,
-  defaultOpen = [],
-  multiple = false,
+  items,
   className = '',
-  variant = 'default',
-  onChange,
-}) => {
-  const [openItems, setOpenItems] = useState<string[]>(defaultOpen);
-
-  const toggleItem = (id: string) => {
-    setOpenItems((prev) => {
-      let newOpenItems: string[];
-
-      if (multiple) {
-        newOpenItems = prev.includes(id)
-          ? prev.filter((item) => item !== id)
-          : [...prev, id];
-      } else {
-        newOpenItems = prev.includes(id) ? [] : [id];
-      }
-
-      onChange?.(newOpenItems);
-      return newOpenItems;
-    });
-  };
-
-  const isItemOpen = (id: string) => openItems.includes(id);
-
-  const variantStyles = {
-    default: 'divide-y divide-gray-200',
-    bordered: 'border border-gray-200 rounded-lg divide-y divide-gray-200',
-    separated: 'space-y-2',
-  };
-
-  return (
-    <AccordionContext.Provider value={{ openItems, toggleItem, isItemOpen }}>
-      <div className={`${variantStyles[variant]} ${className}`}>
-        {children}
-      </div>
-    </AccordionContext.Provider>
-  );
-};
-
-interface AccordionItemProps {
-  id: string;
-  title: ReactNode;
-  children: ReactNode;
-  icon?: ReactNode;
-  disabled?: boolean;
-  className?: string;
-  titleClassName?: string;
-  contentClassName?: string;
-  showIcon?: boolean;
-}
-
-export const AccordionItem: FC<AccordionItemProps> = ({
-  id,
-  title,
-  children,
-  icon,
-  disabled = false,
-  className = '',
-  titleClassName = '',
+  itemClassName = '',
+  headerClassName = '',
   contentClassName = '',
-  showIcon = true,
+  allowMultiple = false,
+  variant = 'default',
+  transitionDuration = 200,
 }) => {
-  const context = useContext(AccordionContext);
-  if (!context) {
-    throw new Error('AccordionItem must be used within an Accordion');
-  }
-
-  const { toggleItem, isItemOpen } = context;
-  const isOpen = isItemOpen(id);
-
-  const ChevronIcon = () => (
-    <svg
-      className={`w-5 h-5 transform transition-transform duration-200 ${
-        isOpen ? 'rotate-180' : ''
-      }`}
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M19 9l-7 7-7-7"
-      />
-    </svg>
+  const [openItems, setOpenItems] = useState<number[]>(
+    items
+      .map((item, index) => (item.isOpen ? index : -1))
+      .filter(index => index !== -1)
   );
+
+  const toggleItem = (index: number) => {
+    if (allowMultiple) {
+      setOpenItems(prev =>
+        prev.includes(index)
+          ? prev.filter(i => i !== index)
+          : [...prev, index]
+      );
+    } else {
+      setOpenItems(prev => (prev.includes(index) ? [] : [index]));
+    }
+  };
+
+  const variantClasses = {
+    default: 'border border-gray-200 rounded-lg',
+    borderless: '',
+  };
 
   return (
-    <div className={`${className}`}>
-      <button
-        onClick={() => !disabled && toggleItem(id)}
-        className={`
-          w-full flex items-center justify-between px-4 py-3
-          text-left text-gray-900 hover:bg-gray-50
-          ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}
-          ${titleClassName}
-        `}
-        disabled={disabled}
-        aria-expanded={isOpen}
-      >
-        <div className="flex items-center">
-          {icon && <span className="mr-3">{icon}</span>}
-          <span className="font-medium">{title}</span>
-        </div>
-        {showIcon && <ChevronIcon />}
-      </button>
-
-      <Transition show={isOpen}>
+    <div className={`space-y-2 ${className}`}>
+      {items.map((item, index) => (
         <div
-          className={`
-            px-4 pb-4 text-gray-600
-            ${contentClassName}
-          `}
+          key={index}
+          className={`${variantClasses[variant]} ${itemClassName}`}
         >
-          {children}
+          <button
+            className={`
+              w-full flex items-center justify-between px-4 py-3
+              ${item.disabled ? 'opacity-50 cursor-not-allowed' : ''}
+              ${headerClassName}
+            `}
+            onClick={() => !item.disabled && toggleItem(index)}
+            disabled={item.disabled}
+          >
+            <div className="flex items-center">
+              {item.icon && item.iconPosition === 'left' && (
+                <span className="mr-2">{item.icon}</span>
+              )}
+              <span className="text-left">{item.title}</span>
+              {item.icon && item.iconPosition === 'right' && (
+                <span className="ml-2">{item.icon}</span>
+              )}
+            </div>
+            <span
+              className="transform transition-transform duration-200"
+              style={{
+                transform: openItems.includes(index) ? 'rotate(180deg)' : 'rotate(0deg)',
+                transitionDuration: `${transitionDuration}ms`,
+              }}
+            >
+              ▼
+            </span>
+          </button>
+          <div
+            className={`overflow-hidden transition-all duration-${transitionDuration}`}
+            style={{
+              maxHeight: openItems.includes(index) ? '1000px' : '0px',
+              transitionDuration: `${transitionDuration}ms`,
+            }}
+          >
+            <div className={`px-4 py-3 ${contentClassName}`}>
+              {item.content}
+            </div>
+          </div>
         </div>
-      </Transition>
-    </div>
-  );
-};
-
-// Controlled Accordion Item
-interface ControlledAccordionItemProps extends Omit<AccordionItemProps, 'id'> {
-  isOpen: boolean;
-  onToggle: () => void;
-}
-
-export const ControlledAccordionItem: FC<ControlledAccordionItemProps> = ({
-  isOpen,
-  onToggle,
-  ...props
-}) => {
-  const ChevronIcon = () => (
-    <svg
-      className={`w-5 h-5 transform transition-transform duration-200 ${
-        isOpen ? 'rotate-180' : ''
-      }`}
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M19 9l-7 7-7-7"
-      />
-    </svg>
-  );
-
-  return (
-    <div className={props.className}>
-      <button
-        onClick={() => !props.disabled && onToggle()}
-        className={`
-          w-full flex items-center justify-between px-4 py-3
-          text-left text-gray-900 hover:bg-gray-50
-          ${props.disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}
-          ${props.titleClassName}
-        `}
-        disabled={props.disabled}
-        aria-expanded={isOpen}
-      >
-        <div className="flex items-center">
-          {props.icon && <span className="mr-3">{props.icon}</span>}
-          <span className="font-medium">{props.title}</span>
-        </div>
-        {props.showIcon && <ChevronIcon />}
-      </button>
-
-      <Transition show={isOpen}>
-        <div
-          className={`
-            px-4 pb-4 text-gray-600
-            ${props.contentClassName}
-          `}
-        >
-          {props.children}
-        </div>
-      </Transition>
+      ))}
     </div>
   );
 };

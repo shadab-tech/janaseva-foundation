@@ -1,217 +1,81 @@
-import { FC, useEffect, useState } from 'react';
+import { FC } from 'react';
 
 interface ProgressProps {
-  value?: number;
+  value: number;
   max?: number;
-  size?: 'sm' | 'md' | 'lg';
-  variant?: 'primary' | 'secondary' | 'success' | 'warning' | 'danger';
-  showValue?: boolean;
-  valueFormat?: (value: number, max: number) => string;
-  animated?: boolean;
-  striped?: boolean;
   className?: string;
-  label?: string;
-  indeterminate?: boolean;
+  barClassName?: string;
+  showLabel?: boolean;
+  labelPosition?: 'inside' | 'outside';
+  striped?: boolean;
+  animated?: boolean;
+  color?: 'primary' | 'success' | 'warning' | 'error';
+  height?: 'sm' | 'md' | 'lg';
+  rounded?: 'none' | 'sm' | 'md' | 'lg' | 'full';
 }
 
 export const Progress: FC<ProgressProps> = ({
-  value = 0,
+  value,
   max = 100,
-  size = 'md',
-  variant = 'primary',
-  showValue = false,
-  valueFormat,
-  animated = false,
-  striped = false,
   className = '',
-  label,
-  indeterminate = false,
+  barClassName = '',
+  showLabel = false,
+  labelPosition = 'inside',
+  striped = false,
+  animated = false,
+  color = 'primary',
+  height = 'md',
+  rounded = 'full',
 }) => {
-  const [mounted, setMounted] = useState(false);
+  const percentage = Math.min((value / max) * 100, 100);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const percentage = Math.min(Math.max((value / max) * 100, 0), 100);
-
-  const sizeStyles = {
-    sm: 'h-1',
-    md: 'h-2',
-    lg: 'h-4',
-  };
-
-  const variantStyles = {
-    primary: 'bg-red-500',
-    secondary: 'bg-gray-500',
+  const colorClasses = {
+    primary: 'bg-blue-500',
     success: 'bg-green-500',
     warning: 'bg-yellow-500',
-    danger: 'bg-red-600',
+    error: 'bg-red-500',
   };
 
-  const formatValue = () => {
-    if (valueFormat) {
-      return valueFormat(value, max);
-    }
-    return `${Math.round(percentage)}%`;
+  const heightClasses = {
+    sm: 'h-2',
+    md: 'h-4',
+    lg: 'h-6',
+  };
+
+  const roundedClasses = {
+    none: 'rounded-none',
+    sm: 'rounded-sm',
+    md: 'rounded-md',
+    lg: 'rounded-lg',
+    full: 'rounded-full',
   };
 
   return (
     <div className={`w-full ${className}`}>
-      {(label || showValue) && (
-        <div className="flex justify-between mb-1">
-          {label && (
-            <span className="text-sm font-medium text-gray-700">
-              {label}
-            </span>
-          )}
-          {showValue && (
-            <span className="text-sm font-medium text-gray-700">
-              {formatValue()}
-            </span>
-          )}
-        </div>
-      )}
-      <div
-        className={`
-          w-full bg-gray-200 rounded-full overflow-hidden
-          ${sizeStyles[size]}
-        `}
-      >
+      <div className={`relative ${heightClasses[height]} bg-gray-200 ${roundedClasses[rounded]} overflow-hidden`}>
         <div
           className={`
-            ${variantStyles[variant]}
-            transition-all duration-300 ease-in-out
-            ${striped ? 'bg-stripes' : ''}
-            ${animated && striped ? 'animate-progress-stripes' : ''}
-            ${indeterminate ? 'animate-indeterminate-progress w-2/5' : ''}
-            ${mounted ? '' : 'w-0'}
+            h-full transition-all duration-300
+            ${striped ? 'bg-striped' : ''}
+            ${animated ? 'animate-striped' : ''}
+            ${colorClasses[color]}
+            ${roundedClasses[rounded]}
+            ${barClassName}
           `}
-          style={{
-            width: indeterminate ? undefined : `${percentage}%`,
-          }}
-          role="progressbar"
-          aria-valuenow={value}
-          aria-valuemin={0}
-          aria-valuemax={max}
-        />
-      </div>
-    </div>
-  );
-};
-
-// Circular Progress
-interface CircularProgressProps extends Omit<ProgressProps, 'size'> {
-  size?: number;
-  thickness?: number;
-  showValue?: boolean;
-}
-
-export const CircularProgress: FC<CircularProgressProps> = ({
-  value = 0,
-  max = 100,
-  size = 40,
-  thickness = 4,
-  variant = 'primary',
-  showValue = false,
-  valueFormat,
-  animated = false,
-  className = '',
-  indeterminate = false,
-}) => {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const percentage = Math.min(Math.max((value / max) * 100, 0), 100);
-  const radius = (size - thickness) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (percentage / 100) * circumference;
-
-  const variantStyles = {
-    primary: 'stroke-red-500',
-    secondary: 'stroke-gray-500',
-    success: 'stroke-green-500',
-    warning: 'stroke-yellow-500',
-    danger: 'stroke-red-600',
-  };
-
-  const formatValue = () => {
-    if (valueFormat) {
-      return valueFormat(value, max);
-    }
-    return `${Math.round(percentage)}%`;
-  };
-
-  return (
-    <div className={`relative inline-flex ${className}`}>
-      <svg
-        className={`transform -rotate-90 ${
-          animated && indeterminate ? 'animate-spin' : ''
-        }`}
-        width={size}
-        height={size}
-      >
-        {/* Background circle */}
-        <circle
-          className="stroke-gray-200"
-          fill="none"
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          strokeWidth={thickness}
-        />
-        {/* Progress circle */}
-        <circle
-          className={`
-            ${variantStyles[variant]}
-            transition-all duration-300 ease-in-out
-          `}
-          fill="none"
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          strokeWidth={thickness}
-          strokeDasharray={circumference}
-          strokeDashoffset={mounted ? offset : circumference}
-          strokeLinecap="round"
-        />
-      </svg>
-      {showValue && !indeterminate && (
-        <div
-          className="absolute inset-0 flex items-center justify-center text-sm font-medium"
+          style={{ width: `${percentage}%` }}
         >
-          {formatValue()}
+          {showLabel && labelPosition === 'inside' && (
+            <span className="absolute inset-0 flex items-center justify-center text-xs font-medium text-white">
+              {`${Math.round(percentage)}%`}
+            </span>
+          )}
+        </div>
+      </div>
+      {showLabel && labelPosition === 'outside' && (
+        <div className="mt-1 text-sm text-gray-600">
+          {`${Math.round(percentage)}%`}
         </div>
       )}
-    </div>
-  );
-};
-
-// Loading Bar
-export const LoadingBar: FC<{
-  className?: string;
-  height?: number;
-  color?: string;
-}> = ({
-  className = '',
-  height = 2,
-  color = 'bg-red-500',
-}) => {
-  return (
-    <div
-      className={`w-full overflow-hidden ${className}`}
-      style={{ height }}
-    >
-      <div
-        className={`
-          w-full h-full ${color}
-          animate-loading-bar
-          transform translate-x-[-100%]
-        `}
-      />
     </div>
   );
 };

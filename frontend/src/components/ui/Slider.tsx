@@ -1,4 +1,4 @@
-import { FC, useRef, useState, useEffect } from 'react';
+import { FC, useState, useRef, useEffect, useCallback } from 'react';
 
 interface SliderProps {
   value: number;
@@ -6,17 +6,14 @@ interface SliderProps {
   min?: number;
   max?: number;
   step?: number;
-  label?: string;
-  showValue?: boolean;
-  valuePrefix?: string;
-  valueSuffix?: string;
   disabled?: boolean;
   size?: 'sm' | 'md' | 'lg';
-  variant?: 'primary' | 'secondary' | 'success' | 'warning' | 'danger';
-  marks?: { value: number; label: string }[];
-  tooltip?: boolean;
+  color?: string;
+  showValue?: boolean;
+  label?: string;
   className?: string;
-  error?: string;
+  marks?: { value: number; label: string }[];
+  orientation?: 'horizontal' | 'vertical';
 }
 
 export const Slider: FC<SliderProps> = ({
@@ -25,244 +22,185 @@ export const Slider: FC<SliderProps> = ({
   min = 0,
   max = 100,
   step = 1,
-  label,
-  showValue = false,
-  valuePrefix = '',
-  valueSuffix = '',
   disabled = false,
   size = 'md',
-  variant = 'primary',
-  marks = [],
-  tooltip = true,
+  color = 'bg-red-500',
+  showValue = false,
+  label,
   className = '',
-  error,
+  marks,
+  orientation = 'horizontal',
 }) => {
   const [isDragging, setIsDragging] = useState(false);
-  const [tooltipPosition, setTooltipPosition] = useState(0);
   const sliderRef = useRef<HTMLDivElement>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
 
-  const sizeStyles = {
+  const sizeClasses = {
     sm: {
       track: 'h-1',
-      thumb: 'w-3 h-3',
-      label: 'text-sm',
+      thumb: 'h-3 w-3',
+      text: 'text-sm',
     },
     md: {
       track: 'h-2',
-      thumb: 'w-4 h-4',
-      label: 'text-base',
+      thumb: 'h-4 w-4',
+      text: 'text-base',
     },
     lg: {
       track: 'h-3',
-      thumb: 'w-6 h-6',
-      label: 'text-lg',
+      thumb: 'h-5 w-5',
+      text: 'text-lg',
     },
   };
 
-  const variantStyles = {
-    primary: {
-      track: 'bg-red-500',
-      thumb: 'bg-red-600',
-      focus: 'focus:ring-red-500',
-    },
-    secondary: {
-      track: 'bg-gray-500',
-      thumb: 'bg-gray-600',
-      focus: 'focus:ring-gray-500',
-    },
-    success: {
-      track: 'bg-green-500',
-      thumb: 'bg-green-600',
-      focus: 'focus:ring-green-500',
-    },
-    warning: {
-      track: 'bg-yellow-500',
-      thumb: 'bg-yellow-600',
-      focus: 'focus:ring-yellow-500',
-    },
-    danger: {
-      track: 'bg-red-500',
-      thumb: 'bg-red-600',
-      focus: 'focus:ring-red-500',
-    },
-  };
-
-  const percentage = ((value - min) / (max - min)) * 100;
-
-  const updateValue = (clientX: number) => {
-    if (!sliderRef.current || disabled) return;
+  const getValueFromPosition = useCallback((position: number) => {
+    if (!sliderRef.current) return value;
 
     const rect = sliderRef.current.getBoundingClientRect();
-    const position = clientX - rect.left;
-    const percentage = Math.max(0, Math.min(1, position / rect.width));
-    const newValue = Math.round((percentage * (max - min) + min) / step) * step;
+    const size = orientation === 'horizontal' ? rect.width : rect.height;
+    const offset = orientation === 'horizontal' ? rect.left : rect.bottom;
+    const pos = orientation === 'horizontal' ? position - offset : offset - position;
+    
+    const percentage = Math.max(0, Math.min(1, pos / size));
+    const rawValue = min + percentage * (max - min);
+    const steppedValue = Math.round(rawValue / step) * step;
+    
+    return Math.max(min, Math.min(max, steppedValue));
+  }, [min, max, step, value, orientation]);
 
+  const handleMove = useCallback((event: MouseEvent | TouchEvent) => {
+    if (!isDragging || disabled) return;
+
+    const position = 'touches' in event
+      ? orientation === 'horizontal'
+        ? event.touches[0].clientX
+        : event.touches[0].clientY
+      : orientation === 'horizontal'
+        ? event.clientX
+        : event.clientY;
+
+    const newValue = getValueFromPosition(position);
     onChange(newValue);
-  };
+  }, [isDragging, disabled, getValueFromPosition, onChange, orientation]);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (disabled) return;
-    setIsDragging(true);
-    updateValue(e.clientX);
-  };
+  const handleStart = useCallback(() => {
+    if (!disabled) {
+      setIsDragging(true);
+    }
+  }, [disabled]);
 
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!isDragging) return;
-    updateValue(e.clientX);
-  };
-
-  const handleMouseUp = () => {
+  const handleEnd = useCallback(() => {
     setIsDragging(false);
-  };
+  }, []);
+
+  const handleTrackClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    if (!disabled) {
+      const position = orientation === 'horizontal' ? event.clientX : event.clientY;
+      const newValue = getValueFromPosition(position);
+      onChange(newValue);
+    }
+  }, [disabled, orientation, getValueFromPosition, onChange]);
 
   useEffect(() => {
     if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('mousemove', handleMove);
+      document.addEventListener('mouseup', handleEnd);
+      document.addEventListener('touchmove', handleMove);
+      document.addEventListener('touchend', handleEnd);
     }
 
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('mouseup', handleEnd);
+      document.removeEventListener('touchmove', handleMove);
+      document.removeEventListener('touchend', handleEnd);
     };
-  }, [isDragging]);
+  }, [isDragging, handleMove, handleEnd]);
 
-  useEffect(() => {
-    if (thumbRef.current) {
-      const thumbRect = thumbRef.current.getBoundingClientRect();
-      setTooltipPosition(thumbRect.width / 2);
-    }
-  }, [value]);
-
-  const formatValue = () => {
-    return `${valuePrefix}${value}${valueSuffix}`;
-  };
+  const percentage = ((value - min) / (max - min)) * 100;
 
   return (
     <div className={className}>
-      {(label || showValue) && (
-        <div className="flex justify-between mb-2">
-          {label && (
-            <label className={`font-medium ${sizeStyles[size].label} ${disabled ? 'opacity-50' : ''}`}>
-              {label}
-            </label>
-          )}
+      {label && (
+        <label className={`block font-medium text-gray-700 mb-2 ${sizeClasses[size].text}`}>
+          {label}
           {showValue && (
-            <span className={`${sizeStyles[size].label} text-gray-600 ${disabled ? 'opacity-50' : ''}`}>
-              {formatValue()}
+            <span className="ml-2 text-gray-500">
+              {value}
             </span>
           )}
-        </div>
+        </label>
       )}
-
       <div
-        ref={sliderRef}
         className={`
-          relative w-full ${sizeStyles[size].track} bg-gray-200 rounded-full
-          ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+          relative
+          ${orientation === 'horizontal' ? 'w-full' : 'h-48 w-fit'}
+          ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
         `}
-        onClick={handleMouseDown}
       >
-        {/* Track fill */}
         <div
-          className={`absolute h-full rounded-full ${variantStyles[variant].track}`}
-          style={{ width: `${percentage}%` }}
-        />
+          ref={sliderRef}
+          className={`
+            ${orientation === 'horizontal' ? 'w-full' : 'h-full w-2'}
+            ${sizeClasses[size].track}
+            bg-gray-200 rounded-full
+          `}
+          onClick={handleTrackClick}
+        >
+          <div
+            className={`
+              ${orientation === 'horizontal' ? 'h-full' : `w-full`}
+              ${color} rounded-full
+            `}
+            style={{
+              width: orientation === 'horizontal' ? `${percentage}%` : undefined,
+              height: orientation === 'vertical' ? `${percentage}%` : undefined,
+            }}
+          />
+        </div>
 
-        {/* Thumb */}
         <div
           ref={thumbRef}
           className={`
-            absolute top-1/2 -translate-y-1/2
-            ${sizeStyles[size].thumb}
-            ${variantStyles[variant].thumb}
-            rounded-full shadow
-            transform -translate-x-1/2
+            absolute
+            ${sizeClasses[size].thumb}
+            ${color} rounded-full shadow
+            transform -translate-x-1/2 -translate-y-1/2
             ${disabled ? '' : 'cursor-grab active:cursor-grabbing'}
-            ${variantStyles[variant].focus}
-            focus:outline-none focus:ring-2 focus:ring-offset-2
+            focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500
           `}
-          style={{ left: `${percentage}%` }}
+          style={{
+            [orientation === 'horizontal' ? 'left' : 'bottom']: `${percentage}%`,
+            [orientation === 'horizontal' ? 'top' : 'left']: '50%',
+          }}
+          onMouseDown={handleStart}
+          onTouchStart={handleStart}
           role="slider"
           aria-valuemin={min}
           aria-valuemax={max}
           aria-valuenow={value}
           tabIndex={disabled ? -1 : 0}
-          onMouseDown={handleMouseDown}
-        >
-          {tooltip && !disabled && (
-            <div
-              className={`
-                absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2
-                px-2 py-1 text-xs font-medium text-white
-                bg-gray-900 rounded shadow-sm
-                transition-opacity duration-200
-                ${isDragging ? 'opacity-100' : 'opacity-0'}
-              `}
-              style={{ marginLeft: -tooltipPosition }}
-            >
-              {formatValue()}
-            </div>
-          )}
-        </div>
-
-        {/* Marks */}
-        {marks.map((mark) => {
-          const markPercentage = ((mark.value - min) / (max - min)) * 100;
-          return (
-            <div
-              key={mark.value}
-              className="absolute top-full mt-2 transform -translate-x-1/2"
-              style={{ left: `${markPercentage}%` }}
-            >
-              <div className="text-xs text-gray-600">{mark.label}</div>
-            </div>
-          );
-        })}
-      </div>
-
-      {error && (
-        <p className="mt-1 text-sm text-red-600">{error}</p>
-      )}
-    </div>
-  );
-};
-
-// Range Slider Component
-interface RangeSliderProps extends Omit<SliderProps, 'value' | 'onChange'> {
-  value: [number, number];
-  onChange: (value: [number, number]) => void;
-}
-
-export const RangeSlider: FC<RangeSliderProps> = ({
-  value: [minValue, maxValue],
-  onChange,
-  ...props
-}) => {
-  const handleMinChange = (newMin: number) => {
-    onChange([Math.min(newMin, maxValue), maxValue]);
-  };
-
-  const handleMaxChange = (newMax: number) => {
-    onChange([minValue, Math.max(minValue, newMax)]);
-  };
-
-  return (
-    <div className="relative">
-      <Slider
-        {...props}
-        value={minValue}
-        onChange={handleMinChange}
-        tooltip={false}
-      />
-      <div className="mt-4">
-        <Slider
-          {...props}
-          value={maxValue}
-          onChange={handleMaxChange}
-          tooltip={false}
         />
+
+        {marks && (
+          <div className={`absolute ${orientation === 'horizontal' ? 'left-0 right-0 top-6' : 'bottom-0 top-0 left-6'}`}>
+            {marks.map((mark) => {
+              const markPercentage = ((mark.value - min) / (max - min)) * 100;
+              return (
+                <div
+                  key={mark.value}
+                  className={`absolute ${sizeClasses[size].text} transform -translate-x-1/2`}
+                  style={{
+                    [orientation === 'horizontal' ? 'left' : 'bottom']: `${markPercentage}%`,
+                  }}
+                >
+                  <div className="h-1 w-0.5 bg-gray-300 mb-1" />
+                  <span className="text-gray-600">{mark.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

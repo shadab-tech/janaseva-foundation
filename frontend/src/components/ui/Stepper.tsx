@@ -1,8 +1,7 @@
 import { FC, ReactNode } from 'react';
 
 interface Step {
-  id: string | number;
-  title: string;
+  label: string;
   description?: string;
   icon?: ReactNode;
   optional?: boolean;
@@ -17,10 +16,8 @@ interface StepperProps {
   variant?: 'default' | 'dots' | 'progress';
   size?: 'sm' | 'md' | 'lg';
   className?: string;
-  onStepClick?: (index: number) => void;
-  showLabels?: boolean;
-  alternativeLabel?: boolean;
-  connector?: ReactNode;
+  onChange?: (step: number) => void;
+  showStepNumbers?: boolean;
 }
 
 export const Stepper: FC<StepperProps> = ({
@@ -30,232 +27,181 @@ export const Stepper: FC<StepperProps> = ({
   variant = 'default',
   size = 'md',
   className = '',
-  onStepClick,
-  showLabels = true,
-  alternativeLabel = false,
-  connector,
+  onChange,
+  showStepNumbers = false,
 }) => {
-  const sizeStyles = {
+  const sizeClasses = {
     sm: {
       icon: 'w-6 h-6',
-      text: 'text-xs',
-      connector: 'h-0.5',
+      text: 'text-sm',
+      connector: 'w-12',
     },
     md: {
       icon: 'w-8 h-8',
-      text: 'text-sm',
-      connector: 'h-0.5',
+      text: 'text-base',
+      connector: 'w-16',
     },
     lg: {
       icon: 'w-10 h-10',
-      text: 'text-base',
-      connector: 'h-1',
+      text: 'text-lg',
+      connector: 'w-20',
     },
   };
 
-  const renderIcon = (step: Step, index: number) => {
+  const renderStepIcon = (step: Step, index: number) => {
     if (step.icon) {
       return step.icon;
     }
 
-    if (step.completed) {
-      return (
-        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-          <path
-            fillRule="evenodd"
-            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-            clipRule="evenodd"
-          />
-        </svg>
-      );
-    }
-
     if (step.error) {
       return (
-        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-          <path
-            fillRule="evenodd"
-            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-            clipRule="evenodd"
-          />
+        <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
         </svg>
       );
     }
 
-    return index + 1;
-  };
+    if (step.completed) {
+      return (
+        <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        </svg>
+      );
+    }
 
-  const renderConnector = (index: number) => {
-    if (index === steps.length - 1) return null;
-
-    const isCompleted = steps[index].completed;
-    const isActive = index < activeStep;
-    const hasError = steps[index].error || steps[index + 1].error;
-
-    return connector || (
-      <div
-        className={`
-          flex-1
-          ${orientation === 'horizontal' ? 'mx-4' : 'my-4 ml-4'}
-          ${sizeStyles[size].connector}
-          ${isCompleted || isActive ? 'bg-red-500' : 'bg-gray-200'}
-          ${hasError ? 'bg-red-500' : ''}
-        `}
-      />
-    );
+    return showStepNumbers ? index + 1 : null;
   };
 
   const renderStep = (step: Step, index: number) => {
     const isActive = index === activeStep;
-    const isCompleted = step.completed;
-    const isClickable = onStepClick && !step.error;
+    const isCompleted = step.completed || index < activeStep;
+    const isError = step.error;
+
+    const stepIconClasses = `
+      ${sizeClasses[size].icon}
+      flex items-center justify-center rounded-full
+      ${isError ? 'bg-red-100 text-red-600' : ''}
+      ${isCompleted ? 'bg-red-600 text-white' : ''}
+      ${isActive && !isCompleted && !isError ? 'bg-red-600 text-white' : ''}
+      ${!isActive && !isCompleted && !isError ? 'bg-gray-100 text-gray-500' : ''}
+      transition-colors duration-200
+    `;
 
     return (
       <div
-        key={step.id}
+        key={index}
         className={`
-          flex ${orientation === 'horizontal' ? 'flex-col' : 'items-start'}
-          ${alternativeLabel ? 'items-center' : ''}
-          ${orientation === 'horizontal' ? 'flex-1' : 'w-full'}
+          flex ${orientation === 'horizontal' ? 'flex-col items-center' : 'items-start'}
+          ${onChange ? 'cursor-pointer' : ''}
         `}
+        onClick={() => onChange?.(index)}
       >
-        <div className={`flex ${orientation === 'horizontal' ? 'flex-col items-center' : 'items-center'}`}>
-          <div
-            className={`
-              flex items-center justify-center rounded-full
-              ${sizeStyles[size].icon}
-              ${isActive ? 'bg-red-500 text-white' : ''}
-              ${isCompleted ? 'bg-red-500 text-white' : 'bg-gray-200'}
-              ${step.error ? 'bg-red-500 text-white' : ''}
-              ${isClickable ? 'cursor-pointer hover:bg-red-600' : ''}
-              transition-colors duration-200
-            `}
-            onClick={() => isClickable && onStepClick(index)}
-            role={isClickable ? 'button' : undefined}
-          >
-            {renderIcon(step, index)}
+        <div className="relative">
+          <div className={stepIconClasses}>
+            {renderStepIcon(step, index)}
           </div>
-          {showLabels && (
+          {index < steps.length - 1 && (
             <div
               className={`
-                ${orientation === 'horizontal' ? 'mt-2' : 'ml-4'}
-                ${sizeStyles[size].text}
-                ${isActive ? 'text-gray-900' : 'text-gray-500'}
-                ${step.error ? 'text-red-600' : ''}
+                absolute
+                ${orientation === 'horizontal'
+                  ? 'top-1/2 left-full -translate-y-1/2'
+                  : 'top-full left-1/2 -translate-x-1/2'
+                }
+                ${sizeClasses[size].connector}
+                ${orientation === 'horizontal' ? 'h-0.5' : 'h-8 w-0.5'}
+                ${isCompleted ? 'bg-red-600' : 'bg-gray-200'}
+                transition-colors duration-200
               `}
-            >
-              <div className="font-medium">{step.title}</div>
-              {step.description && (
-                <div className="text-gray-500">{step.description}</div>
-              )}
-              {step.optional && (
-                <div className="text-gray-400 text-xs">Optional</div>
-              )}
+            />
+          )}
+        </div>
+        <div
+          className={`
+            mt-2
+            ${orientation === 'horizontal' ? 'text-center' : 'ml-4'}
+            ${sizeClasses[size].text}
+          `}
+        >
+          <div className="font-medium text-gray-900">
+            {step.label}
+            {step.optional && (
+              <span className="ml-1 text-gray-500 text-sm">(Optional)</span>
+            )}
+          </div>
+          {step.description && (
+            <div className="text-gray-500 text-sm mt-1">
+              {step.description}
             </div>
           )}
         </div>
-        {renderConnector(index)}
       </div>
     );
   };
 
-  const renderDots = (step: Step, index: number) => {
+  const renderDot = (step: Step, index: number) => {
     const isActive = index === activeStep;
-    const isCompleted = step.completed;
-    const isClickable = onStepClick && !step.error;
+    const isCompleted = step.completed || index < activeStep;
+    const isError = step.error;
 
     return (
       <div
-        key={step.id}
+        key={index}
         className={`
           flex flex-col items-center
-          ${orientation === 'horizontal' ? 'flex-1' : 'w-full'}
+          ${onChange ? 'cursor-pointer' : ''}
         `}
+        onClick={() => onChange?.(index)}
       >
-        <div
-          className={`
-            rounded-full transition-all duration-200
-            ${sizeStyles[size].icon}
-            ${isActive ? 'bg-red-500 scale-125' : ''}
-            ${isCompleted ? 'bg-red-500' : 'bg-gray-200'}
-            ${step.error ? 'bg-red-500' : ''}
-            ${isClickable ? 'cursor-pointer hover:bg-red-600' : ''}
-          `}
-          onClick={() => isClickable && onStepClick(index)}
-          role={isClickable ? 'button' : undefined}
-        />
-        {showLabels && (
+        <div className="relative">
           <div
             className={`
-              mt-2 text-center
-              ${sizeStyles[size].text}
-              ${isActive ? 'text-gray-900' : 'text-gray-500'}
-              ${step.error ? 'text-red-600' : ''}
+              w-3 h-3 rounded-full
+              ${isError ? 'bg-red-600' : ''}
+              ${isCompleted ? 'bg-red-600' : ''}
+              ${isActive && !isCompleted && !isError ? 'bg-red-600' : ''}
+              ${!isActive && !isCompleted && !isError ? 'bg-gray-300' : ''}
+              transition-colors duration-200
             `}
-          >
-            {step.title}
-          </div>
-        )}
-        {renderConnector(index)}
+          />
+          {index < steps.length - 1 && (
+            <div
+              className={`
+                absolute top-1/2 left-full -translate-y-1/2
+                w-8 h-0.5
+                ${isCompleted ? 'bg-red-600' : 'bg-gray-200'}
+                transition-colors duration-200
+              `}
+            />
+          )}
+        </div>
       </div>
     );
   };
 
   const renderProgress = (step: Step, index: number) => {
-    const progress = (activeStep / (steps.length - 1)) * 100;
     const isActive = index === activeStep;
-    const isCompleted = step.completed;
+    const isCompleted = step.completed || index < activeStep;
+    const progress = (activeStep / (steps.length - 1)) * 100;
 
     return (
       <div
-        key={step.id}
+        key={index}
         className="relative flex-1"
+        onClick={() => onChange?.(index)}
       >
         <div
           className={`
-            absolute top-0 left-0 h-1
-            ${isCompleted ? 'bg-red-500' : 'bg-gray-200'}
-            transition-all duration-300
-          `}
-          style={{ width: `${progress}%` }}
-        />
-        <div
-          className={`
-            absolute top-1/2 -translate-y-1/2
-            ${index === 0 ? 'left-0' : index === steps.length - 1 ? 'right-0' : 'left-1/2'}
-            transform ${index === steps.length - 1 ? 'translate-x-0' : '-translate-x-1/2'}
+            h-2 rounded-full
+            ${isCompleted ? 'bg-red-600' : 'bg-gray-200'}
+            transition-colors duration-200
           `}
         >
-          <div
-            className={`
-              rounded-full transition-all duration-200
-              ${sizeStyles[size].icon}
-              ${isActive ? 'bg-red-500 ring-4 ring-red-100' : ''}
-              ${isCompleted ? 'bg-red-500' : 'bg-gray-200'}
-              ${step.error ? 'bg-red-500' : ''}
-            `}
-          >
-            {isCompleted && (
-              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            )}
-          </div>
-          {showLabels && (
+          {isActive && (
             <div
-              className={`
-                absolute top-full mt-2 text-center whitespace-nowrap
-                ${sizeStyles[size].text}
-                ${isActive ? 'text-gray-900' : 'text-gray-500'}
-                ${step.error ? 'text-red-600' : ''}
-              `}
-            >
-              {step.title}
-            </div>
+              className="absolute top-0 left-0 h-full bg-red-600 rounded-full transition-all duration-200"
+              style={{ width: `${progress}%` }}
+            />
           )}
         </div>
       </div>
@@ -266,20 +212,17 @@ export const Stepper: FC<StepperProps> = ({
     <div
       className={`
         flex
-        ${orientation === 'horizontal' ? 'flex-row' : 'flex-col'}
+        ${orientation === 'horizontal' ? 'flex-row space-x-4' : 'flex-col space-y-4'}
         ${className}
       `}
     >
-      {steps.map((step, index) => {
-        switch (variant) {
-          case 'dots':
-            return renderDots(step, index);
-          case 'progress':
-            return renderProgress(step, index);
-          default:
-            return renderStep(step, index);
-        }
-      })}
+      {steps.map((step, index) => (
+        variant === 'dots'
+          ? renderDot(step, index)
+          : variant === 'progress'
+            ? renderProgress(step, index)
+            : renderStep(step, index)
+      ))}
     </div>
   );
 };

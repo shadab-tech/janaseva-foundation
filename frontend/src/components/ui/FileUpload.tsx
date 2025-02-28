@@ -1,176 +1,126 @@
-import { FC, useRef, useState, useCallback, DragEvent } from 'react';
-import { LoadingSpinner } from './LoadingSpinner';
+import { FC, useRef, useState, useCallback } from 'react';
 
 interface FileUploadProps {
-  onChange: (files: File[]) => void;
-  value?: File[];
+  onFileSelect: (files: File[]) => void;
+  accept?: string;
   multiple?: boolean;
-  accept?: string[];
   maxSize?: number;
   maxFiles?: number;
-  preview?: boolean;
-  previewMaxHeight?: number;
-  disabled?: boolean;
-  loading?: boolean;
-  error?: string;
-  label?: string;
-  helperText?: string;
   className?: string;
-  showFileList?: boolean;
-  onRemove?: (file: File) => void;
+  disabled?: boolean;
+  label?: string;
+  description?: string;
+  error?: string;
+  showPreview?: boolean;
+  previewType?: 'list' | 'grid';
+  allowPaste?: boolean;
 }
 
 export const FileUpload: FC<FileUploadProps> = ({
-  onChange,
-  value = [],
+  onFileSelect,
+  accept,
   multiple = false,
-  accept = ['image/*', 'application/pdf'],
-  maxSize = 5 * 1024 * 1024, // 5MB
-  maxFiles = 5,
-  preview = true,
-  previewMaxHeight = 200,
-  disabled = false,
-  loading = false,
-  error,
-  label,
-  helperText,
+  maxSize,
+  maxFiles = 10,
   className = '',
-  showFileList = true,
-  onRemove,
+  disabled = false,
+  label = 'Upload files',
+  description = 'Drag and drop files here, or click to select files',
+  error,
+  showPreview = true,
+  previewType = 'list',
+  allowPaste = true,
 }) => {
-  const [isDragActive, setIsDragActive] = useState(false);
-  const [previews, setPreviews] = useState<{ file: File; preview: string }[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const validateFile = (file: File): boolean => {
-    if (maxSize && file.size > maxSize) {
-      return false;
-    }
-    if (accept.length > 0) {
-      const fileType = file.type;
-      const isAccepted = accept.some(type => {
-        if (type.endsWith('/*')) {
-          const baseType = type.slice(0, -2);
-          return fileType.startsWith(baseType);
-        }
-        return type === fileType;
-      });
-      return isAccepted;
-    }
-    return true;
-  };
+  const handleFileSelect = useCallback((files: FileList | null) => {
+    if (!files || disabled) return;
 
-  const handleFiles = useCallback((files: FileList | File[]) => {
-    const validFiles = Array.from(files)
-      .filter(validateFile)
-      .slice(0, maxFiles - value.length);
+    const validFiles: File[] = [];
+    const fileArray = Array.from(files);
+
+    for (const file of fileArray) {
+      // Check file size
+      if (maxSize && file.size > maxSize) {
+        console.error(`File ${file.name} exceeds maximum size of ${maxSize} bytes`);
+        continue;
+      }
+
+      // Check file type
+      if (accept) {
+        const acceptedTypes = accept.split(',').map(type => type.trim());
+        const fileType = file.type || `application/${file.name.split('.').pop()}`;
+        if (!acceptedTypes.some(type => {
+          if (type.startsWith('.')) {
+            return file.name.toLowerCase().endsWith(type.toLowerCase());
+          }
+          if (type.endsWith('/*')) {
+            return fileType.startsWith(type.slice(0, -1));
+          }
+          return fileType === type;
+        })) {
+          console.error(`File ${file.name} type not accepted`);
+          continue;
+        }
+      }
+
+      validFiles.push(file);
+    }
 
     if (validFiles.length > 0) {
-      const newFiles = [...value, ...validFiles];
-      onChange(newFiles);
+      const newFiles = multiple
+        ? [...selectedFiles, ...validFiles].slice(0, maxFiles)
+        : [validFiles[0]];
 
-      if (preview) {
-        const newPreviews = validFiles.map(file => ({
-          file,
-          preview: URL.createObjectURL(file),
-        }));
-        setPreviews(prev => [...prev, ...newPreviews]);
-      }
+      setSelectedFiles(newFiles);
+      onFileSelect(newFiles);
     }
-  }, [value, onChange, maxFiles, preview, validateFile]);
+  }, [disabled, maxSize, accept, multiple, maxFiles, selectedFiles, onFileSelect]);
 
-  const handleDragEnter = (e: DragEvent<HTMLDivElement>) => {
+  const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    e.stopPropagation();
-    if (!disabled && !loading) {
-      setIsDragActive(true);
+    if (!disabled) {
+      setIsDragging(true);
     }
-  };
+  }, [disabled]);
 
-  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    e.stopPropagation();
-    setIsDragActive(false);
-  };
+    setIsDragging(false);
+  }, []);
 
-  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+  const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    e.stopPropagation();
-  };
+    setIsDragging(false);
+    handleFileSelect(e.dataTransfer.files);
+  }, [handleFileSelect]);
 
-  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragActive(false);
+  const handlePaste = useCallback((e: ClipboardEvent) => {
+    if (!allowPaste || disabled) return;
 
-    if (!disabled && !loading && e.dataTransfer.files) {
-      handleFiles(e.dataTransfer.files);
+    const files = e.clipboardData?.files;
+    if (files && files.length > 0) {
+      handleFileSelect(files);
     }
-  };
+  }, [allowPaste, disabled, handleFileSelect]);
 
-  const handleClick = () => {
-    if (!disabled && !loading && fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      handleFiles(e.target.files);
-    }
-  };
-
-  const handleRemove = (file: File) => {
-    const newFiles = value.filter(f => f !== file);
-    onChange(newFiles);
-
-    if (preview) {
-      setPreviews(prev => {
-        const newPreviews = prev.filter(p => p.file !== file);
-        URL.revokeObjectURL(prev.find(p => p.file === file)?.preview || '');
-        return newPreviews;
-      });
-    }
-
-    onRemove?.(file);
-  };
+  const removeFile = useCallback((index: number) => {
+    setSelectedFiles(prev => {
+      const newFiles = [...prev];
+      newFiles.splice(index, 1);
+      onFileSelect(newFiles);
+      return newFiles;
+    });
+  }, [onFileSelect]);
 
   const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return '0 B';
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
-  };
-
-  const renderPreview = (file: File) => {
-    const previewUrl = previews.find(p => p.file === file)?.preview;
-    
-    if (!previewUrl) return null;
-
-    if (file.type.startsWith('image/')) {
-      return (
-        <img
-          src={previewUrl}
-          alt={file.name}
-          className="object-contain rounded"
-          style={{ maxHeight: previewMaxHeight }}
-        />
-      );
-    }
-
-    if (file.type === 'application/pdf') {
-      return (
-        <div className="flex items-center justify-center bg-gray-100 rounded p-4">
-          <svg className="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M4 18h12a2 2 0 002-2V6a2 2 0 00-2-2h-3.93a2 2 0 01-1.66-.89l-.812-1.22A2 2 0 008.93 1H4a2 2 0 00-2 2v13a2 2 0 002 2z" />
-          </svg>
-          <span className="ml-2 text-sm text-gray-600">{file.name}</span>
-        </div>
-      );
-    }
-
-    return null;
   };
 
   return (
@@ -180,61 +130,53 @@ export const FileUpload: FC<FileUploadProps> = ({
           {label}
         </label>
       )}
+
       <div
         className={`
           relative border-2 border-dashed rounded-lg p-6
-          ${isDragActive ? 'border-red-500 bg-red-50' : 'border-gray-300'}
-          ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-red-500'}
+          ${isDragging ? 'border-red-500 bg-red-50' : 'border-gray-300'}
+          ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
           ${error ? 'border-red-500' : ''}
-          transition-colors
         `}
-        onClick={handleClick}
-        onDragEnter={handleDragEnter}
-        onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        onClick={() => !disabled && fileInputRef.current?.click()}
       >
         <input
           ref={fileInputRef}
           type="file"
           className="hidden"
-          accept={accept.join(',')}
+          accept={accept}
           multiple={multiple}
-          onChange={handleInputChange}
-          disabled={disabled || loading}
+          onChange={(e) => handleFileSelect(e.target.files)}
+          disabled={disabled}
         />
+
         <div className="text-center">
-          {loading ? (
-            <LoadingSpinner text="Uploading..." />
-          ) : (
-            <>
-              <svg
-                className="mx-auto h-12 w-12 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 48 48"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 14v20c0 4.418 3.582 8 8 8h16c4.418 0 8-3.582 8-8V14m0 0l-4-4m4 4l-4-4m-4-4l-4 4m4-4l-4 4"
-                />
-              </svg>
-              <p className="mt-1 text-sm text-gray-600">
-                {isDragActive ? (
-                  'Drop the files here...'
-                ) : (
-                  <>
-                    Drag & drop files here, or{' '}
-                    <span className="text-red-500">browse</span>
-                  </>
-                )}
-              </p>
-              <p className="mt-1 text-xs text-gray-500">
-                {helperText || `Max ${formatFileSize(maxSize)} per file. Allowed types: ${accept.join(', ')}`}
-              </p>
-            </>
+          <svg
+            className="mx-auto h-12 w-12 text-gray-400"
+            stroke="currentColor"
+            fill="none"
+            viewBox="0 0 48 48"
+          >
+            <path
+              d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <p className="mt-1 text-sm text-gray-600">{description}</p>
+          {accept && (
+            <p className="mt-1 text-xs text-gray-500">
+              Accepted file types: {accept}
+            </p>
+          )}
+          {maxSize && (
+            <p className="mt-1 text-xs text-gray-500">
+              Maximum file size: {formatFileSize(maxSize)}
+            </p>
           )}
         </div>
       </div>
@@ -243,43 +185,64 @@ export const FileUpload: FC<FileUploadProps> = ({
         <p className="mt-1 text-sm text-red-600">{error}</p>
       )}
 
-      {showFileList && value.length > 0 && (
-        <ul className="mt-4 space-y-2">
-          {value.map((file, index) => (
-            <li
+      {showPreview && selectedFiles.length > 0 && (
+        <div className={`mt-4 ${previewType === 'grid' ? 'grid grid-cols-2 gap-4' : 'space-y-2'}`}>
+          {selectedFiles.map((file, index) => (
+            <div
               key={`${file.name}-${index}`}
-              className="flex items-start space-x-4 p-2 bg-gray-50 rounded"
+              className={`
+                flex items-center justify-between
+                p-2 rounded-lg border border-gray-200
+                ${previewType === 'grid' ? 'flex-col text-center' : ''}
+              `}
             >
-              {preview && renderPreview(file)}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
-                  {file.name}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {formatFileSize(file.size)}
-                </p>
-              </div>
-              {!disabled && !loading && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleRemove(file);
-                  }}
-                  className="text-gray-400 hover:text-red-500"
-                >
-                  <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+              <div className={`flex items-center ${previewType === 'grid' ? 'flex-col' : ''}`}>
+                {file.type.startsWith('image/') ? (
+                  <img
+                    src={URL.createObjectURL(file)}
+                    alt={file.name}
+                    className="h-10 w-10 object-cover rounded"
+                  />
+                ) : (
+                  <svg className="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path
-                      fillRule="evenodd"
-                      d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                      clipRule="evenodd"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
                     />
                   </svg>
-                </button>
-              )}
-            </li>
+                )}
+                <div className={`${previewType === 'grid' ? 'mt-2' : 'ml-3'}`}>
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {file.name}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {formatFileSize(file.size)}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="text-gray-400 hover:text-gray-500"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeFile(index);
+                }}
+              >
+                <span className="sr-only">Remove file</span>
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </div>
   );

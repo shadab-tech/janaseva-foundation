@@ -1,221 +1,105 @@
-import { FC, ReactNode } from 'react';
-
-type BadgeVariant = 'primary' | 'secondary' | 'success' | 'danger' | 'warning' | 'info';
-type BadgeSize = 'sm' | 'md' | 'lg';
+import { FC, ReactNode, MouseEvent } from 'react';
 
 interface BadgeProps {
-  children?: ReactNode;
-  variant?: BadgeVariant;
-  size?: BadgeSize;
-  rounded?: boolean;
-  dot?: boolean;
+  children: ReactNode;
+  color?: 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info';
+  variant?: 'solid' | 'outline' | 'subtle';
+  size?: 'sm' | 'md' | 'lg';
+  rounded?: 'none' | 'sm' | 'md' | 'lg' | 'full';
   className?: string;
-  onClick?: () => void;
+  icon?: ReactNode;
+  iconPosition?: 'left' | 'right';
+  onClick?: (event: MouseEvent<HTMLDivElement>) => void;
+  disabled?: boolean;
 }
 
 export const Badge: FC<BadgeProps> = ({
   children,
-  variant = 'primary',
+  color = 'primary',
+  variant = 'solid',
   size = 'md',
-  rounded = false,
-  dot = false,
+  rounded = 'full',
   className = '',
+  icon,
+  iconPosition = 'left',
   onClick,
+  disabled = false,
 }) => {
-  const baseStyles = 'inline-flex items-center font-medium';
-
-  const variantStyles: Record<BadgeVariant, string> = {
-    primary: 'bg-red-100 text-red-800',
-    secondary: 'bg-gray-100 text-gray-800',
-    success: 'bg-green-100 text-green-800',
-    danger: 'bg-red-100 text-red-800',
-    warning: 'bg-yellow-100 text-yellow-800',
-    info: 'bg-blue-100 text-blue-800',
+  const colorClasses = {
+    primary: {
+      solid: 'bg-blue-500 text-white',
+      outline: 'border border-blue-500 text-blue-500',
+      subtle: 'bg-blue-100 text-blue-800',
+    },
+    secondary: {
+      solid: 'bg-gray-500 text-white',
+      outline: 'border border-gray-500 text-gray-500',
+      subtle: 'bg-gray-100 text-gray-800',
+    },
+    success: {
+      solid: 'bg-green-500 text-white',
+      outline: 'border border-green-500 text-green-500',
+      subtle: 'bg-green-100 text-green-800',
+    },
+    warning: {
+      solid: 'bg-yellow-500 text-white',
+      outline: 'border border-yellow-500 text-yellow-500',
+      subtle: 'bg-yellow-100 text-yellow-800',
+    },
+    error: {
+      solid: 'bg-red-500 text-white',
+      outline: 'border border-red-500 text-red-500',
+      subtle: 'bg-red-100 text-red-800',
+    },
+    info: {
+      solid: 'bg-blue-500 text-white',
+      outline: 'border border-blue-500 text-blue-500',
+      subtle: 'bg-blue-100 text-blue-800',
+    },
   };
 
-  const sizeStyles: Record<BadgeSize, string> = {
-    sm: 'px-2 py-0.5 text-xs',
-    md: 'px-2.5 py-0.5 text-sm',
-    lg: 'px-3 py-1 text-base',
+  const sizeClasses = {
+    sm: 'px-2 py-1 text-xs',
+    md: 'px-3 py-1.5 text-sm',
+    lg: 'px-4 py-2 text-base',
   };
 
-  const dotSizeStyles: Record<BadgeSize, string> = {
-    sm: 'h-1.5 w-1.5',
-    md: 'h-2 w-2',
-    lg: 'h-2.5 w-2.5',
+  const roundedClasses = {
+    none: 'rounded-none',
+    sm: 'rounded-sm',
+    md: 'rounded-md',
+    lg: 'rounded-lg',
+    full: 'rounded-full',
   };
 
-  const dotStyles = dot
-    ? `mr-1.5 relative flex-shrink-0 rounded-full ${dotSizeStyles[size]}`
-    : '';
-
-  const dotColorStyles: Record<BadgeVariant, string> = {
-    primary: 'bg-red-400',
-    secondary: 'bg-gray-400',
-    success: 'bg-green-400',
-    danger: 'bg-red-400',
-    warning: 'bg-yellow-400',
-    info: 'bg-blue-400',
+  const handleClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (!disabled && onClick) {
+      onClick(event);
+    }
   };
 
   return (
-    <span
+    <div
       className={`
-        ${baseStyles}
-        ${variantStyles[variant]}
-        ${sizeStyles[size]}
-        ${rounded ? 'rounded-full' : 'rounded'}
-        ${onClick ? 'cursor-pointer hover:bg-opacity-75' : ''}
+        inline-flex items-center font-medium
+        ${colorClasses[color][variant]}
+        ${sizeClasses[size]}
+        ${roundedClasses[rounded]}
+        ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
         ${className}
       `}
-      onClick={onClick}
+      onClick={handleClick}
       role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
     >
-      {dot && (
-        <span
-          className={`${dotStyles} ${dotColorStyles[variant]}`}
-          aria-hidden="true"
-        />
+      {icon && iconPosition === 'left' && (
+        <span className="mr-1.5">{icon}</span>
       )}
       {children}
-    </span>
-  );
-};
-
-// Status Badge Component
-interface StatusBadgeProps {
-  status: 'active' | 'inactive' | 'pending' | 'completed' | 'cancelled' | 'error';
-  size?: BadgeSize;
-  className?: string;
-}
-
-export const StatusBadge: FC<StatusBadgeProps> = ({
-  status,
-  size = 'md',
-  className = '',
-}) => {
-  const statusConfig: Record<StatusBadgeProps['status'], { variant: BadgeVariant; label: string }> = {
-    active: { variant: 'success', label: 'Active' },
-    inactive: { variant: 'secondary', label: 'Inactive' },
-    pending: { variant: 'warning', label: 'Pending' },
-    completed: { variant: 'success', label: 'Completed' },
-    cancelled: { variant: 'danger', label: 'Cancelled' },
-    error: { variant: 'danger', label: 'Error' },
-  };
-
-  const config = statusConfig[status];
-
-  return (
-    <Badge
-      variant={config.variant}
-      size={size}
-      dot
-      rounded
-      className={className}
-    >
-      {config.label}
-    </Badge>
-  );
-};
-
-// Count Badge Component
-interface CountBadgeProps {
-  count: number;
-  max?: number;
-  variant?: BadgeVariant;
-  size?: BadgeSize;
-  className?: string;
-}
-
-export const CountBadge: FC<CountBadgeProps> = ({
-  count,
-  max = 99,
-  variant = 'primary',
-  size = 'sm',
-  className = '',
-}) => {
-  const displayCount = count > max ? `${max}+` : count.toString();
-
-  return (
-    <Badge
-      variant={variant}
-      size={size}
-      rounded
-      className={`min-w-[1.5em] justify-center ${className}`}
-    >
-      {displayCount}
-    </Badge>
-  );
-};
-
-// Notification Badge Component
-interface NotificationBadgeProps {
-  count?: number;
-  dot?: boolean;
-  max?: number;
-  variant?: BadgeVariant;
-  className?: string;
-  children: ReactNode;
-}
-
-export const NotificationBadge: FC<NotificationBadgeProps> = ({
-  count,
-  dot = false,
-  max = 99,
-  variant = 'danger',
-  className = '',
-  children,
-}) => {
-  return (
-    <div className="relative inline-flex">
-      {children}
-      {dot ? (
-        <Badge
-          variant={variant}
-          size="sm"
-          className="absolute -top-1 -right-1 h-2 w-2 p-0"
-        >
-          <span className="sr-only">Notification indicator</span>
-        </Badge>
-      ) : count ? (
-        <CountBadge
-          count={count}
-          max={max}
-          variant={variant}
-          size="sm"
-          className={`absolute -top-1 -right-1 ${className}`}
-        />
-      ) : null}
+      {icon && iconPosition === 'right' && (
+        <span className="ml-1.5">{icon}</span>
+      )}
     </div>
-  );
-};
-
-// Dot Badge Component
-interface DotBadgeProps {
-  variant?: BadgeVariant;
-  size?: BadgeSize;
-  className?: string;
-  pulse?: boolean;
-}
-
-export const DotBadge: FC<DotBadgeProps> = ({
-  variant = 'primary',
-  size = 'md',
-  className = '',
-  pulse = false,
-}) => {
-  return (
-    <Badge
-      variant={variant}
-      size={size}
-      className={`
-        p-0 flex-shrink-0 rounded-full
-        ${pulse ? 'animate-pulse' : ''}
-        ${className}
-      `}
-    >
-      <span className="sr-only">Status indicator</span>
-    </Badge>
   );
 };
 
