@@ -1,152 +1,112 @@
+'use client';
+
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/router';
-import Image from 'next/image';
 
 const Navbar = () => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const router = useRouter();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
 
   return (
-    <nav className="bg-red-500">
+    <nav className="bg-white shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex justify-between h-16">
           {/* Logo and Brand */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center">
-              <div className="bg-white rounded-full p-2">
-                <Image
-                  src="https://storage.googleapis.com/a1aa/image/s7peiEti5QafVcj30Ob9kzmryqvDCnxlPuf6ziCrs7s.jpg"
-                  alt="Janaseva Foundation Logo"
-                  width={32}
-                  height={32}
-                  className="rounded-full"
-                />
-              </div>
-              <span className="text-white text-lg font-bold ml-3">
-                Janaseva Foundation
-              </span>
+              <span className="text-xl font-bold text-red-600">Janaseva Foundation</span>
             </Link>
           </div>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:block">
-            <div className="ml-10 flex items-baseline space-x-4">
-              <Link
-                href="/"
-                className={`${
-                  router.pathname === '/'
-                    ? 'bg-red-700 text-white'
-                    : 'text-white hover:bg-red-600'
-                } px-3 py-2 rounded-md text-sm font-medium`}
-              >
-                Home
-              </Link>
-              <Link
-                href="/services"
-                className={`${
-                  router.pathname === '/services'
-                    ? 'bg-red-700 text-white'
-                    : 'text-white hover:bg-red-600'
-                } px-3 py-2 rounded-md text-sm font-medium`}
-              >
-                Services
-              </Link>
-              <Link
-                href="/my-bookings"
-                className={`${
-                  router.pathname === '/my-bookings'
-                    ? 'bg-red-700 text-white'
-                    : 'text-white hover:bg-red-600'
-                } px-3 py-2 rounded-md text-sm font-medium`}
-              >
-                My Bookings
-              </Link>
-              <Link
-                href="/login"
-                className="text-white hover:bg-red-600 px-3 py-2 rounded-md text-sm font-medium"
-              >
-                Login
-              </Link>
-            </div>
+          {/* Navigation Links */}
+          <div className="hidden sm:flex sm:items-center sm:space-x-8">
+            <Link 
+              href="/services"
+              className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium"
+            >
+              Services
+            </Link>
+            <Link 
+              href="/my-bookings"
+              className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium"
+            >
+              My Bookings
+            </Link>
+            <Link
+              href="/login"
+              className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium"
+            >
+              Login
+            </Link>
+            <Link
+              href="/signup"
+              className="bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              Get Health Card
+            </Link>
           </div>
 
           {/* Mobile menu button */}
-          <div className="md:hidden">
+          <div className="flex items-center sm:hidden">
             <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="text-white hover:text-gray-300 focus:outline-none"
+              type="button"
+              className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
+              onClick={toggleMobileMenu}
+              aria-controls="mobile-menu"
+              aria-expanded={isMobileMenuOpen}
             >
+              <span className="sr-only">Open main menu</span>
+              {/* Menu icon */}
               <svg
                 className="h-6 w-6"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
               >
-                {isMenuOpen ? (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                ) : (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 6h16M4 12h16M4 18h16"
-                  />
-                )}
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
               </svg>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile Navigation */}
-      {isMenuOpen && (
-        <div className="md:hidden">
-          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-            <Link
-              href="/"
-              className={`${
-                router.pathname === '/'
-                  ? 'bg-red-700 text-white'
-                  : 'text-white hover:bg-red-600'
-              } block px-3 py-2 rounded-md text-base font-medium`}
-            >
-              Home
-            </Link>
-            <Link
-              href="/services"
-              className={`${
-                router.pathname === '/services'
-                  ? 'bg-red-700 text-white'
-                  : 'text-white hover:bg-red-600'
-              } block px-3 py-2 rounded-md text-base font-medium`}
-            >
-              Services
-            </Link>
-            <Link
-              href="/my-bookings"
-              className={`${
-                router.pathname === '/my-bookings'
-                  ? 'bg-red-700 text-white'
-                  : 'text-white hover:bg-red-600'
-              } block px-3 py-2 rounded-md text-base font-medium`}
-            >
-              My Bookings
-            </Link>
-            <Link
-              href="/login"
-              className="text-white hover:bg-red-600 block px-3 py-2 rounded-md text-base font-medium"
-            >
-              Login
-            </Link>
-          </div>
+      {/* Mobile menu */}
+      <div className={`sm:hidden ${isMobileMenuOpen ? 'block' : 'hidden'}`} id="mobile-menu">
+        <div className="px-2 pt-2 pb-3 space-y-1">
+          <Link
+            href="/services"
+            className="text-gray-600 hover:text-gray-900 block px-3 py-2 text-base font-medium"
+          >
+            Services
+          </Link>
+          <Link
+            href="/my-bookings"
+            className="text-gray-600 hover:text-gray-900 block px-3 py-2 text-base font-medium"
+          >
+            My Bookings
+          </Link>
+          <Link
+            href="/login"
+            className="text-gray-600 hover:text-gray-900 block px-3 py-2 text-base font-medium"
+          >
+            Login
+          </Link>
+          <Link
+            href="/signup"
+            className="text-gray-600 hover:text-gray-900 block px-3 py-2 text-base font-medium"
+          >
+            Get Health Card
+          </Link>
         </div>
-      )}
+      </div>
     </nav>
   );
 };
