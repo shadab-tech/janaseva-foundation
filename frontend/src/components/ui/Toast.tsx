@@ -20,9 +20,19 @@ interface ToastContextType {
   toasts: ToastProps[];
   showToast: (toast: Omit<ToastProps, 'id' | 'onClose'>) => void;
   closeToast: (id: string) => void;
+  error: (message: string) => void; // Added for error handling
+  success: (message: string) => void; // Added for success handling
+
 }
 
-const ToastContext = createContext<ToastContextType | null>(null);
+const ToastContext = createContext<ToastContextType | null>({
+  toasts: [],
+  showToast: () => {},
+  closeToast: () => {},
+  error: (message: string) => {},
+  success: (message: string) => {},
+});
+
 
 interface ToastProviderProps {
   children: React.ReactNode;
@@ -53,11 +63,14 @@ export const ToastProvider: FC<ToastProviderProps> = ({
     setToasts(prev => prev.filter(toast => toast.id !== id));
   }, []);
 
-  const value = {
+  const value: ToastContextType = {
     toasts,
     showToast,
     closeToast,
+    error: (message: string) => showToast({ type: 'error', message }),
+    success: (message: string) => showToast({ type: 'success', message }),
   };
+
 
   const positionStyles = {
     'top-right': 'top-0 right-0',

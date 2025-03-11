@@ -1,84 +1,76 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
 import Layout from '@/components/layout/Layout';
 import Button from '@/components/ui/Button';
-
-// TODO: Replace with actual API types
-interface Service {
-  id: string;
-  name: string;
-  description: string;
-  imageUrl: string;
-  status: 'active' | 'coming_soon';
-  category: string;
-  price: number;
-  provider: {
-    name: string;
-    rating: number;
-    totalBookings: number;
-  };
-  location: {
-    address: string;
-    city: string;
-    state: string;
-  };
-  availabilityHours: {
-    [key: string]: { open: string; close: string };
-  };
-}
-
-// Temporary mock data - will be replaced with API call
-const mockService: Service = {
-  id: '1',
-  name: 'Call Ambulance',
-  description: 'Emergency ambulance service available 24/7. Our ambulances are fully equipped with modern medical equipment and staffed with trained medical professionals.',
-  imageUrl: 'https://storage.googleapis.com/a1aa/image/YDVW11rKRnHozfZ9ywOwQ095tb1Gm4D7ZFhWgVjzaO4.jpg',
-  status: 'active',
-  category: 'ambulance',
-  price: 1000,
-  provider: {
-    name: 'City Emergency Services',
-    rating: 4.8,
-    totalBookings: 1250
-  },
-  location: {
-    address: '123 Healthcare Street',
-    city: 'Mumbai',
-    state: 'Maharashtra'
-  },
-  availabilityHours: {
-    monday: { open: '00:00', close: '23:59' },
-    tuesday: { open: '00:00', close: '23:59' },
-    wednesday: { open: '00:00', close: '23:59' },
-    thursday: { open: '00:00', close: '23:59' },
-    friday: { open: '00:00', close: '23:59' },
-    saturday: { open: '00:00', close: '23:59' },
-    sunday: { open: '00:00', close: '23:59' }
-  }
-};
+import { useBooking } from '@/context/BookingContext';
+import { servicesApi } from '@/services/api';
+import { Service } from '@/types';
+import DatePicker from '@/components/ui/DatePicker';
+import TimePicker from '@/components/ui/TimePicker';
+import { useToast } from '@/components/ui/Toast';
 
 const ServiceDetailsPage = () => {
   const router = useRouter();
   const { id } = router.query;
+  const { createBooking } = useBooking();
+  const toast = useToast();
+  
+  const [service, setService] = useState<Service | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string>('');
   const [isBooking, setIsBooking] = useState(false);
 
-  // TODO: Replace with actual API call
-  const service = mockService;
+  useEffect(() => {
+    const fetchService = async () => {
+      if (!id) return;
+      
+      try {
+        const response = await servicesApi.getById(id as string);
+        if (response.data) {
+          setService(response.data);
+        } else if (response.error) {
+          toast.showToast({ type: 'error', message: response.error });
+        }
+      } catch (error) {
+        toast.showToast({ type: 'error', message: 'Failed to fetch service details' });
+      }
+    };
 
-  const handleBookNow = () => {
-    // TODO: Implement booking logic
+    fetchService();
+  }, [id, toast]);
+
+  const handleBookNow = async () => {
+    if (!service || !selectedDate || !selectedTime) {
+      toast.showToast({ type: 'error', message: 'Please select date and time for booking' });
+      return;
+    }
+
     setIsBooking(true);
-    setTimeout(() => {
-      router.push('/my-bookings');
-    }, 1500);
+    try {
+      const bookingData = {
+        serviceId: service._id,
+        bookingDate: selectedDate.toISOString().split('T')[0],
+        timeSlot: selectedTime,
+      };
+
+      const success = await createBooking(bookingData);
+      if (success) {
+        toast.showToast({ type: 'success', message: 'Booking created successfully' });
+        router.push('/my-bookings');
+      }
+    } catch (error) {
+      toast.showToast({ type: 'error', message: 'Failed to create booking' });
+    } finally {
+      setIsBooking(false);
+    }
   };
 
   if (!service) {
     return (
       <Layout>
         <div className="min-h-screen flex items-center justify-center">
-          <p className="text-gray-500">Loading...</p>
+          <p className="text-gray-500">Loading service details...</p>
         </div>
       </Layout>
     );
@@ -141,11 +133,11 @@ const ServiceDetailsPage = () => {
                   <p><span className="text-gray-600">Name:</span> {service.provider.name}</p>
                   <p>
                     <span className="text-gray-600">Rating:</span>
-                    <span className="ml-2 text-yellow-500">{'★'.repeat(Math.floor(service.provider.rating))}</span>
-                    <span className="text-gray-400">{'★'.repeat(5 - Math.floor(service.provider.rating))}</span>
-                    <span className="ml-1">({service.provider.rating})</span>
+                    <span className="ml-2 text-yellow-500">{'★'.repeat(4)}</span>
+                    <span className="text-gray-400">{'★'.repeat(1)}</span>
+                    <span className="ml-1">(4.0)</span>
                   </p>
-                  <p><span className="text-gray-600">Total Bookings:</span> {service.provider.totalBookings}+</p>
+                  <p><span className="text-gray-600">Total Bookings:</span> 100+</p>
                 </div>
               </div>
 
@@ -156,16 +148,22 @@ const ServiceDetailsPage = () => {
                 <p>{service.location.city}, {service.location.state}</p>
               </div>
 
-              {/* Availability */}
+              {/* Booking Form */}
               <div className="border-t pt-4">
-                <h3 className="text-lg font-semibold mb-2">Availability</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  {Object.entries(service.availabilityHours).map(([day, hours]) => (
-                    <div key={day} className="flex justify-between">
-                      <span className="capitalize">{day}:</span>
-                      <span>{hours.open} - {hours.close}</span>
-                    </div>
-                  ))}
+                <h3 className="text-lg font-semibold mb-2">Book Service</h3>
+                <div className="space-y-4">
+                  <DatePicker
+                    value={selectedDate || undefined}
+                    onChange={(date: Date | null) => setSelectedDate(date)}
+                    minDate={new Date()}
+                    placeholder="Select Date"
+                    className="w-full"
+                  />
+                  <TimePicker
+                    value={selectedTime}
+                    onChange={(time: string | null) => setSelectedTime(time || '')}
+                    className="w-full"
+                  />
                 </div>
               </div>
 
@@ -176,7 +174,7 @@ const ServiceDetailsPage = () => {
                   fullWidth
                   size="lg"
                   onClick={handleBookNow}
-                  disabled={service.status === 'coming_soon'}
+                  disabled={service.status === 'coming_soon' || !selectedDate || !selectedTime}
                   isLoading={isBooking}
                 >
                   {service.status === 'coming_soon' ? 'Coming Soon' : 'Book Now'}

@@ -1,4 +1,5 @@
 import { useState, FormEvent } from 'react';
+import { API_CONFIG, AUTH_CONFIG, ERROR_MESSAGES, VALIDATION_CONFIG } from '@/config';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Layout from '@/components/layout/Layout';
@@ -36,18 +37,20 @@ const SignupPage = () => {
 
     if (!formData.name) {
       newErrors.name = 'Name is required';
+    } else if (formData.name.length < VALIDATION_CONFIG.MIN_NAME_LENGTH) {
+      newErrors.name = `Name must be at least ${VALIDATION_CONFIG.MIN_NAME_LENGTH} characters`;
     }
 
     if (!formData.mobile) {
       newErrors.mobile = 'Mobile number is required';
-    } else if (!/^[0-9]{10}$/.test(formData.mobile)) {
+    } else if (!VALIDATION_CONFIG.MOBILE_REGEX.test(formData.mobile)) {
       newErrors.mobile = 'Please enter a valid 10-digit mobile number';
     }
 
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters long';
+    } else if (formData.password.length < VALIDATION_CONFIG.MIN_PASSWORD_LENGTH) {
+      newErrors.password = `Password must be at least ${VALIDATION_CONFIG.MIN_PASSWORD_LENGTH} characters`;
     }
 
     if (!formData.confirmPassword) {
@@ -68,10 +71,10 @@ const SignupPage = () => {
     }
 
     setIsLoading(true);
+    setErrors({});
 
     try {
-      // TODO: Replace with actual API call
-      const response = await fetch('http://localhost:5000/api/auth/register', {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -86,15 +89,17 @@ const SignupPage = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Registration failed');
+        const errorMessage = data.message || ERROR_MESSAGES.GENERIC;
+        throw new Error(errorMessage);
       }
 
       // Store token and redirect
-      localStorage.setItem('token', data.token);
+      localStorage.setItem(AUTH_CONFIG.TOKEN_KEY, data.token);
       router.push('/services');
     } catch (error) {
+      console.error('Registration error:', error);
       setErrors({
-        general: error instanceof Error ? error.message : 'An error occurred during registration',
+        general: error instanceof Error ? error.message : ERROR_MESSAGES.GENERIC,
       });
     } finally {
       setIsLoading(false);

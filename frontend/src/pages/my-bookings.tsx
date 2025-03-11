@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
-import { withAuth } from '@/context/AuthContext';
-import { useBooking } from '@/context/BookingContext';
-import { ConfirmationModal } from '@/components/ui/Modal';
-import Modal from '@/components/ui/Modal';
-import Layout from '@/components/layout/Layout';
-import BookingCard from '@/components/bookings/BookingCard';
-import BookingDetails from '@/components/bookings/BookingDetails';
-import { PageSpinner } from '@/components/ui/LoadingSpinner';
-import Input from '@/components/ui/Input';
-import { Booking } from '@/types';
+import { withAuth } from '../context/AuthContext';
+import { useBooking } from '../context/BookingContext';
+import ConfirmationModal from '../components/ui/ConfirmationModal'; // Updated import
+import Modal from '../components/ui/Modal';
+import Layout from '../components/layout/Layout';
+import BookingCard from '../components/bookings/BookingCard';
+import BookingDetails from '../components/bookings/BookingDetails';
+import { PageSpinner } from '../components/ui/LoadingSpinner';
+import Input from '../components/ui/Input';
+import { Booking } from '../types';
 
 const SORT_OPTIONS = {
   DATE_ASC: 'date_asc',

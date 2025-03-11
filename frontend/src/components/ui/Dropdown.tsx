@@ -1,6 +1,6 @@
 import { FC, ReactNode, useEffect, useRef, useState } from 'react';
 import { Portal } from './Portal';
-import { ScaleTransition } from './Transition';
+import { Scale } from './Transition';
 
 interface DropdownProps {
   trigger: ReactNode;
@@ -111,7 +111,7 @@ export const Dropdown: FC<DropdownProps> = ({
         {trigger}
       </div>
       <Portal containerId="dropdown-root">
-        <ScaleTransition show={isOpen}>
+        <Scale show={isOpen}>
           <div
             ref={dropdownRef}
             className={`
@@ -128,7 +128,7 @@ export const Dropdown: FC<DropdownProps> = ({
           >
             {children}
           </div>
-        </ScaleTransition>
+        </Scale>
       </Portal>
     </>
   );

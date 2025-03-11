@@ -7,10 +7,14 @@ import {
   ReactNode,
 } from 'react';
 import { useRouter } from 'next/router';
-import { useApi } from '@/hooks/useApi';
-import { useToast } from '@/components/ui/Toast';
-import { bookingsApi } from '@/services/api';
-import { Booking, CreateBookingData } from '@/types';
+import { useApi } from '../hooks/useApi';
+
+import { useToast } from '../components/ui/Toast';
+
+import { bookingsApi } from '../services/api';
+
+import { Booking, CreateBookingData } from '../types';
+
 
 interface BookingContextType {
   bookings: Booking[];
@@ -38,10 +42,11 @@ export const BookingProvider = ({ children }: BookingProviderProps) => {
   const toast = useToast();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const {
     data: bookingsResponse,
-    error,
+    error: apiError,
     isLoading,
     execute: fetchBookingsApi
   } = useApi<{ data: Booking[] }>(bookingsApi.getUserBookings);
@@ -64,6 +69,7 @@ export const BookingProvider = ({ children }: BookingProviderProps) => {
       const response = await createBookingApi(data);
 
       if (response.error) {
+        setError(response.error);
         toast.error(response.error);
         return false;
       }
@@ -84,6 +90,7 @@ export const BookingProvider = ({ children }: BookingProviderProps) => {
       });
 
       if (response.error) {
+        setError(response.error);
         toast.error(response.error);
         return false;
       }
