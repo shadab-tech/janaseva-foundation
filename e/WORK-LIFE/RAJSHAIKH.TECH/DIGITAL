@@ -1,8 +1,0 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  reactStrictMode: true,
-  // Remove the experimental section if it only contained appDir
-  // If you have other experimental features, keep them and remove just appDir
-}
-
-module.exports = nextConfig
